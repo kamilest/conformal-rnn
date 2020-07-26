@@ -3,7 +3,7 @@ Codebase for "Frequentist Uncertainty in Recurrent Neural Networks via Blockwise
 
 If you use our code in your research, please cite:
 ```sh
-@inproceedings{SM2019,
+@inproceedings{bjrnn2020,
 	author = {Ahmed M. Alaa, Mihaela van der Schaar},
 	title = {Frequentist Uncertainty in Recurrent Neural Networks via Blockwise Influence Functions},
 	booktitle = {International Conference on Machine Learning},
