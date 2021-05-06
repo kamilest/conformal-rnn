@@ -14,14 +14,13 @@ import torch
 import scipy.stats as st
 
 from utils.data_padding import *
-
-torch.manual_seed(1)
-
 from influence.influence_computation import *
 from influence.influence_utils import *
 
+torch.manual_seed(1)
 
-class RNN_uncertainty_wrapper():
+
+class RNN_uncertainty_wrapper:
 
     def __init__(self, model, mode="exact", damp=1e-4):
 
@@ -77,7 +76,7 @@ class RNN_uncertainty_wrapper():
 
 def model_loss_single(output, target, masks):
     single_loss = masks * (output - target) ** 2
-    loss = torch.mean(torch.sum(single_loss, axis=0) / torch.sum(masks, axis=0))
+    loss = torch.mean(torch.sum(single_loss, dim=0) / torch.sum(masks, dim=0))
 
     return loss
 
@@ -90,7 +89,7 @@ def single_losses(model):
 def model_loss(output, target, masks):
     single_loss = masks * (output - target) ** 2
     loss = torch.sum(
-        torch.sum(single_loss, axis=1) / torch.sum(torch.sum(masks, axis=1)))
+        torch.sum(single_loss, dim=1) / torch.sum(torch.sum(masks, dim=1)))
 
     return loss
 
@@ -98,7 +97,7 @@ def model_loss(output, target, masks):
 def quantile_loss(output, target, masks, q):
     single_loss = masks * ((output - target) * (output >= target) * q + (
             target - output) * (output < target) * (1 - q))
-    loss = torch.mean(torch.sum(single_loss, axis=1) / torch.sum(masks, axis=1))
+    loss = torch.mean(torch.sum(single_loss, dim=1) / torch.sum(masks, dim=1))
 
     return loss
 
