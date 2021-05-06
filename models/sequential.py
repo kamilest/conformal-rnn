@@ -168,7 +168,6 @@ class RNN(nn.Module):
         return out
 
     def fit(self, X, Y):
-
         X_padded, _ = padd_arrays(X, max_length=self.MAX_STEPS)
         Y_padded, loss_masks = np.squeeze(
             padd_arrays(Y, max_length=self.MAX_STEPS)[0], axis=2), np.squeeze(
