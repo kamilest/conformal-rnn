@@ -10,7 +10,6 @@ if not sys.warnoptions:
 
     warnings.simplefilter("ignore")
 
-import torch
 import scipy.stats as st
 
 from utils.data_padding import *
@@ -192,7 +191,6 @@ class RNN(nn.Module):
 
         # training and testing
         for epoch in range(self.EPOCH):
-
             for step in range(self.N_STEPS):
 
                 batch_indexes = np.random.choice(list(range(X.shape[0])),
@@ -222,14 +220,10 @@ class RNN(nn.Module):
                     print('Epoch: ', epoch,
                           '| train loss: %.4f' % self.loss.data)
 
-    def predict(self, X, padd=False, numpy_output=False):
-
+    def predict(self, X, padd=False):
         if type(X) is list:
-
             X_, masks = padd_arrays(X, max_length=self.MAX_STEPS)
-
         else:
-
             X_, masks = padd_arrays([X], max_length=self.MAX_STEPS)
 
         X_test = Variable(torch.tensor(X_), volatile=True).type(
@@ -237,22 +231,17 @@ class RNN(nn.Module):
         predicts_ = self(X_test).view(-1, self.MAX_STEPS)
 
         if padd:
-
             prediction = unpadd_arrays(predicts_.detach().numpy(), masks)
-
         else:
-
             prediction = predicts_.detach().numpy()
 
         return prediction
 
     def sequence_loss(self):
-
         return single_losses(self)
 
 
 class DPRNN(nn.Module):
-
     def __init__(self,
                  mode="RNN",
                  EPOCH=5,
@@ -307,13 +296,11 @@ class DPRNN(nn.Module):
         # h_c shape (n_layers, batch, hidden_size)
 
         if self.mode == "LSTM":
-
             r_out, (h_n, h_c) = self.rnn(x,
                                          None)  # None represents zero
             # initial hidden state
 
         else:
-
             r_out, h_n = self.rnn(x, None)
 
         # choose r_out at the last time step
@@ -322,7 +309,6 @@ class DPRNN(nn.Module):
         return out
 
     def fit(self, X, Y):
-
         X_padded, _ = padd_arrays(X, max_length=self.MAX_STEPS)
         Y_padded, loss_masks = np.squeeze(
             padd_arrays(Y, max_length=self.MAX_STEPS)[0], axis=2), np.squeeze(
@@ -345,9 +331,7 @@ class DPRNN(nn.Module):
 
         # training and testing
         for epoch in range(self.EPOCH):
-
             for step in range(self.N_STEPS):
-
                 batch_indexes = np.random.choice(list(range(X.shape[0])),
                                                  size=self.BATCH_SIZE,
                                                  replace=True, p=None)
@@ -374,15 +358,11 @@ class DPRNN(nn.Module):
                     print('Epoch: ', epoch, '| train loss: %.4f' % loss.data)
 
     def predict(self, X, num_samples=100, alpha=0.05):
-
         z_critical = st.norm.ppf((1 - alpha) + (alpha) / 2)
 
         if type(X) is list:
-
             X_, masks = padd_arrays(X, max_length=self.MAX_STEPS)
-
         else:
-
             X_, masks = padd_arrays([X], max_length=self.MAX_STEPS)
 
         predictions = []
@@ -391,7 +371,6 @@ class DPRNN(nn.Module):
 
         for idx in range(num_samples):
             predicts_ = self(X_test).view(-1, self.MAX_STEPS)
-
             predictions.append(
                 predicts_.detach().numpy().reshape((-1, 1, self.MAX_STEPS)))
 
@@ -405,7 +384,6 @@ class DPRNN(nn.Module):
 
 
 class QRNN(nn.Module):
-
     def __init__(self,
                  mode="RNN",
                  EPOCH=5,
@@ -448,7 +426,6 @@ class QRNN(nn.Module):
                     }
 
         self.rnn = rnn_dict[self.mode]
-
         self.out = nn.Linear(self.HIDDEN_UNITS, 2)
 
     def forward(self, x):
@@ -458,13 +435,10 @@ class QRNN(nn.Module):
         # h_c shape (n_layers, batch, hidden_size)
 
         if self.mode == "LSTM":
-
             r_out, (h_n, h_c) = self.rnn(x,
                                          None)  # None represents zero
             # initial hidden state
-
         else:
-
             r_out, h_n = self.rnn(x, None)
 
         # choose r_out at the last time step
@@ -473,7 +447,6 @@ class QRNN(nn.Module):
         return out
 
     def fit(self, X, Y):
-
         X_padded, _ = padd_arrays(X, max_length=self.MAX_STEPS)
         Y_padded, loss_masks = np.squeeze(
             padd_arrays(Y, max_length=self.MAX_STEPS)[0], axis=2), np.squeeze(
@@ -496,9 +469,7 @@ class QRNN(nn.Module):
 
         # training and testing
         for epoch in range(self.EPOCH):
-
             for step in range(self.N_STEPS):
-
                 batch_indexes = np.random.choice(list(range(X.shape[0])),
                                                  size=self.BATCH_SIZE,
                                                  replace=True, p=None)
@@ -529,13 +500,9 @@ class QRNN(nn.Module):
                     print('Epoch: ', epoch, '| train loss: %.4f' % loss.data)
 
     def predict(self, X):
-
         if type(X) is list:
-
             X_, masks = padd_arrays(X, max_length=self.MAX_STEPS)
-
         else:
-
             X_, masks = padd_arrays([X], max_length=self.MAX_STEPS)
 
         X_test = Variable(torch.tensor(X_), volatile=True).type(
