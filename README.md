@@ -1,12 +1,5 @@
-# rnn-blockwise-jackknife
-Codebase for "Frequentist Uncertainty in Recurrent Neural Networks via Blockwise Influence Functions", ICML 2020.
+# Conformal RNNs
 
-If you use our code in your research, please cite:
-```sh
-@inproceedings{bjrnn2020,
-	author = {Ahmed M. Alaa, Mihaela van der Schaar},
-	title = {Frequentist Uncertainty in Recurrent Neural Networks via Blockwise Influence Functions},
-	booktitle = {International Conference on Machine Learning},
-	year = {2020}
-}
-```
+Codebase for the uncertainty interval prediction for time series model forecasting using conformal prediction.
+
+Builds on the codebase for "Frequentist Uncertainty in Recurrent Neural Networks via Blockwise Influence Functions", ICML 2020.
