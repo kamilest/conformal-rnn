@@ -8,7 +8,10 @@
 from matplotlib import pyplot as plt
 from sklearn.metrics import roc_auc_score
 
-from models.sequential import *
+from models.dprnn import DPRNN
+from models.qrnn import QRNN
+from models.rnn import RNN
+from models.uncertainty import RNN_uncertainty_wrapper
 from utils.make_data import *
 
 
