@@ -8,7 +8,6 @@ from utils.data_padding import padd_arrays, unpadd_arrays
 
 
 class RNN(nn.Module):
-
     def __init__(self,
                  mode="RNN",
                  EPOCH=5,
@@ -52,6 +51,12 @@ class RNN(nn.Module):
 
         self.out = nn.Linear(self.HIDDEN_UNITS, self.OUTPUT_SIZE)
 
+        self.X = None
+        self.y = None
+        self.masks = None
+        self.loss_fn = None
+        self.loss = None
+
     def forward(self, x):
         # x shape (batch, time_step, input_size)
         # r_out shape (batch, time_step, output_size)
@@ -59,13 +64,9 @@ class RNN(nn.Module):
         # h_c shape (n_layers, batch, hidden_size)
 
         if self.mode == "LSTM":
-
-            r_out, (h_n, h_c) = self.rnn(x,
-                                         None)  # None represents zero
-            # initial hidden state
-
+            # None represents zero initial hidden state
+            r_out, (h_n, h_c) = self.rnn(x, None)
         else:
-
             r_out, h_n = self.rnn(x, None)
 
         # choose r_out at the last time step
@@ -97,7 +98,6 @@ class RNN(nn.Module):
         # training and testing
         for epoch in range(self.EPOCH):
             for step in range(self.N_STEPS):
-
                 batch_indexes = np.random.choice(list(range(X.shape[0])),
                                                  size=self.BATCH_SIZE,
                                                  replace=True, p=None)
