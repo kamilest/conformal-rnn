@@ -1,10 +1,10 @@
 # Copyright (c) 2020, Ahmed M. Alaa
 # Licensed under the BSD 3-clause license (see LICENSE.txt)
 
+import sys
+
 import numpy as np
 import torch
-
-import sys
 
 if not sys.warnoptions:
     import warnings
@@ -14,7 +14,7 @@ if not sys.warnoptions:
 
 def autoregressive(X, w):
     return np.array(
-        [np.sum(X[0:k+1] * np.flip(w[0:k+1]).reshape(-1, 1)) for k in
+        [np.sum(X[0:k + 1] * np.flip(w[0:k + 1]).reshape(-1, 1)) for k in
          range(len(X))])
 
 
@@ -26,7 +26,6 @@ def create_autoregressive_data(n_samples=100,
                                noise_profile=None,
                                memory_factor=0.9,
                                mode="time-dependent"):
-
     # TODO varying series lengths (perhaps with generated padding)
     # TODO sampling frequencies
     # TODO stationarity
@@ -39,7 +38,8 @@ def create_autoregressive_data(n_samples=100,
 
     if noise_profile is None:
         # default increasing noise profile
-        noise_profile = np.array([1/(seq_len - 1) * k for k in range(seq_len)])
+        noise_profile = np.array(
+            [1 / (seq_len - 1) * k for k in range(seq_len)])
 
     assert len(noise_profile) == seq_len
 
@@ -55,5 +55,49 @@ def create_autoregressive_data(n_samples=100,
             torch.normal(mean=0.0, std=torch.tensor(noise_profile)))
               .detach().numpy().reshape(-1, n_features)).reshape(seq_len, )
              for k in range(n_samples)]
+
+    return X, Y
+
+
+def generate_autoregressive_forecasts(n_samples=100,
+                                      seq_len=100,
+                                      n_features=1,
+                                      X_mean=1,
+                                      X_variance=2,
+                                      noise_profile=None,
+                                      memory_factor=0.9,
+                                      mode="time-dependent",
+                                      horizon=10):
+    total_seq_len = seq_len + horizon
+    # Create the input features of the generating process
+    X_gen = [np.random.normal(X_mean, X_variance, (total_seq_len,
+                                                   n_features))
+             for _ in range(n_samples)]
+    w = np.array([memory_factor ** k for k in range(total_seq_len)])
+
+    if noise_profile is None:
+        # default increasing noise profile
+        noise_profile = np.array(
+            [1 / (seq_len - 1) * k for k in range(total_seq_len)])
+
+    X = None  # X stores the time series values generated from features X_gen
+    if mode == "noise-sweep":
+        X = [[(autoregressive(X_gen[k], w).reshape(total_seq_len, n_features) +
+               np.random.normal(0, noise_profile[u],
+                                (total_seq_len, n_features))).reshape(
+            total_seq_len, )
+              for k in range(n_samples)] for u in range(len(noise_profile))]
+
+
+    elif mode == "time-dependent":
+        X = [(autoregressive(X_gen[k], w).reshape(total_seq_len, n_features) + (
+            torch.normal(mean=0.0, std=torch.tensor(noise_profile)))
+              .detach().numpy().reshape(-1, n_features)).reshape(
+            total_seq_len, )
+             for k in range(n_samples)]
+
+    # Y_t corresponds to the value `horizon` steps away from X_t
+    Y = X[horizon:]
+    X = X[:-horizon]
 
     return X, Y
