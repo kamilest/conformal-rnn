@@ -105,9 +105,7 @@ class ConformalForecaster(nn.Module):
 
     def predict(self, x):
         """Forecasts the time series with conformal uncertainty intervals."""
-        self.eval()
         out = self(x)
-        # TODO +/- nonconformity score will not return *adaptive*
-        # interval widths.
+        # TODO +/- nonconformity score will not return *adaptive* interval widths.
         return torch.vstack([out - self.critical_calibration_scores,
                              out + self.critical_calibration_scores]).T
