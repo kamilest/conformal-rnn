@@ -34,36 +34,82 @@ class ConformalForecaster(nn.Module):
 
         self.num_train = None
         self.calibration_scores = None
-        self.masks = None  # indicates where which parts of time series are
-        # padded.
 
-    def fit(self, X, Y):
-        # Train encoder to generate embeddings
+    def forward(self, x):
+        _, (h_n, c_n) = self.forecaster_rnn(x)
+        out = self.forecaster_out(h_n)
 
-        # Train forecaster to give forecasts based on embeddings
+        return out
 
-        # encoder and forecaster can be the same model.
+    def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=150):
+        # Train the forecaster to return correct multi-step predictions.
+        train_loader = torch.utils.data.DataLoader(dataset,
+                                                   batch_size=batch_size,
+                                                   shuffle=True)
+        self.num_train = len(dataset)
 
-        self.calibrate(None, None)
-        pass
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        criterion = torch.nn.MSELoss()
 
-    def get_nonconformity(self, output, target):
-        """Measures the nonconformity between output and target time series."""
+        for epoch in range(epochs):
+            self.train()
+            train_loss = 0.
 
-        # Average MSE loss for every step in the sequence.
-        # TODO alternative nonconformity scores.
-        return torch.mean((self.masks * (output - target)) ** 2, dim=0)
+            for sequences, targets in train_loader:  # iterate through batches
+                optimizer.zero_grad()
 
-    def calibrate(self, X_cal, Y_cal):
+                out = self(sequences)
+
+                loss = criterion(out, targets)
+                loss.backward()
+
+                train_loss += loss.item()
+
+                optimizer.step()
+
+            mean_train_loss = train_loss / len(train_loader)
+            print('Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
+
+        # Collect calibration scores
+        self.calibrate(calibration_dataset)
+
+    def calibrate(self, calibration_dataset):
         """
-        Computes the nonconformity scores for the calibration set.
-        X_cal and Y_cal are expected to be tensors.
+        Computes the nonconformity scores for the calibration dataset.
         """
-        Y_pred = self.forecaster(X_cal)
-        self.calibration_scores = torch.sort(self.get_nonconformity(Y_pred,
-                                                                    Y_cal))
+        calibration_loader = torch.utils.data.DataLoader(calibration_dataset,
+                                                         batch_size=1)
+        calibration_scores = []
 
-    def predict(self, X):
+        with torch.set_grad_enabled(False):
+            self.eval()
+            for sequences, targets in calibration_loader:
+                out = self(sequences)
+                calibration_scores.append(nonconformity(out, targets))
+
+        # TODO *critical* calibration scores?
+        # self.calibration_scores = [np.quantile(calibration_scores,
+        #                                        q=self.alpha / 2),
+        #                            np.quantile(calibration_scores,
+        #                                        q=1 - self.alpha / 2)]
+        self.calibration_scores = calibration_scores
+
+    def predict(self, test_dataset):
         """Forecasts the time series with conformal uncertainty intervals."""
-        # TODO implementation.
+        # for each example
+        # obtain the prediction
+        # determine for which targets the nonconformity score would fall below
+        # critical values indicated by
+
+        # p_{z}:=\frac{\left|\left\{i=m+1, \ldots, n+1: R_{i} \geq R_{n+1}\right\}\right|}{n-m+1}
+        test_loader = torch.utils.data.DataLoader(test_dataset,
+                                                  batch_size=1)
+        with torch.set_grad_enabled(False):
+            self.eval()
+            for sequences, _ in test_loader:
+                out = self(sequences)
+                y = None  # TODO what is y
+                p_value = np.sum(
+                    [self.nonconformity(out, y) >= score for score in \
+                     self.calibration_scores]) / (self.num_training + 1)
         pass
