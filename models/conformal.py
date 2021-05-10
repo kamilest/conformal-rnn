@@ -34,6 +34,7 @@ class ConformalForecaster(nn.Module):
 
         self.num_train = None
         self.calibration_scores = None
+        self.critical_calibration_score = None
 
     def forward(self, x):
         _, (h_n, c_n) = self.forecaster_rnn(x)
@@ -93,6 +94,13 @@ class ConformalForecaster(nn.Module):
         #                            np.quantile(calibration_scores,
         #                                        q=1 - self.alpha / 2)]
         self.calibration_scores = calibration_scores
+
+        # Given p_{z}:=\frac{\left|\left\{i=m+1, \ldots, n+1: R_{i} \geq R_{n+1}\right\}\right|}{n-m+1}
+        # and the accepted R_{n+1} = \Delta(y, f(x_{test})) are such that
+        # p_{z} > \alpha we have that the nonconformity scores should be below
+        # the (corrected) alpha% of calibration scores.
+        self.critical_calibration_score = np.quantile(
+            self.calibration_scores, q=self.alpha * (self.num_train + 1))
 
     def predict(self, test_dataset):
         """Forecasts the time series with conformal uncertainty intervals."""
