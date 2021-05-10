@@ -5,8 +5,8 @@ from torch import nn
 
 def nonconformity(output, target):
     """Measures the nonconformity between output and target time series."""
-    # Average MSE loss for every step in the sequence.
-    return torch.nn.functional.mse_loss(output, target)
+    # Average MAE loss for every step in the sequence.
+    return torch.nn.functional.l1_loss(output, target, reduction='none')
 
 
 class ConformalForecaster(nn.Module):
