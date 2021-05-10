@@ -88,11 +88,6 @@ class ConformalForecaster(nn.Module):
                 out = self(sequences)
                 calibration_scores.append(nonconformity(out, targets))
 
-        # TODO *critical* calibration scores?
-        # self.calibration_scores = [np.quantile(calibration_scores,
-        #                                        q=self.alpha / 2),
-        #                            np.quantile(calibration_scores,
-        #                                        q=1 - self.alpha / 2)]
         self.calibration_scores = calibration_scores
 
         # Given p_{z}:=\frac{\left|\left\{i=m+1, \ldots, n+1: R_{i} \geq R_{n+1}\right\}\right|}{n-m+1}
@@ -106,6 +101,6 @@ class ConformalForecaster(nn.Module):
     def predict(self, x):
         """Forecasts the time series with conformal uncertainty intervals."""
         out = self(x)
-        # TODO +/- nonconformity score will not return *adaptive* interval widths.
+        # TODO +/- nonconformity will not return *adaptive* interval widths.
         return torch.vstack([out - self.critical_calibration_scores,
                              out + self.critical_calibration_scores]).T
