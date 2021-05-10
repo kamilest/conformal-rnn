@@ -99,25 +99,15 @@ class ConformalForecaster(nn.Module):
         # and the accepted R_{n+1} = \Delta(y, f(x_{test})) are such that
         # p_{z} > \alpha we have that the nonconformity scores should be below
         # the (corrected) alpha% of calibration scores.
-        self.critical_calibration_score = np.quantile(
-            self.calibration_scores, q=self.alpha * (self.num_train + 1))
+        self.critical_calibration_scores = torch.tensor([np.quantile(
+            position_calibration_scores, q=self.alpha * (self.num_train + 1))
+            for position_calibration_scores in self.calibration_scores])
 
-    def predict(self, test_dataset):
+    def predict(self, x):
         """Forecasts the time series with conformal uncertainty intervals."""
-        # for each example
-        # obtain the prediction
-        # determine for which targets the nonconformity score would fall below
-        # critical values indicated by
-
-        # p_{z}:=\frac{\left|\left\{i=m+1, \ldots, n+1: R_{i} \geq R_{n+1}\right\}\right|}{n-m+1}
-        test_loader = torch.utils.data.DataLoader(test_dataset,
-                                                  batch_size=1)
-        with torch.set_grad_enabled(False):
-            self.eval()
-            for sequences, _ in test_loader:
-                out = self(sequences)
-                y = None  # TODO what is y
-                p_value = np.sum(
-                    [self.nonconformity(out, y) >= score for score in \
-                     self.calibration_scores]) / (self.num_training + 1)
-        pass
+        self.eval()
+        out = self(x)
+        # TODO +/- nonconformity score will not return *adaptive*
+        # interval widths.
+        return torch.vstack([out - self.critical_calibration_scores,
+                      out + self.critical_calibration_scores]).T
