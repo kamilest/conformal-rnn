@@ -1,18 +1,34 @@
+import numpy as np
 import torch
+from torch import nn
 
 
-class ConformalForecaster:
-    def __init__(self, **kwargs):
+
+
+class ConformalForecaster(nn.Module):
+    def __init__(self, embedding_size, input_size=1, horizon=1, alpha=0.05):
         super(ConformalForecaster, self).__init__()
+        # input_size indicates the number of features in the time series
+        # input_size=1 for univariate series.
 
         # Encoder and forecaster can be the same (if embeddings are
         # trained on `horizon`-step forecasts), but different models are
         # possible.
-        # TODO separate encoder and forecaster models.
+
+        # TODO try separate encoder and forecaster models.
         # TODO try the RNN autoencoder trained on reconstruction error.
         self.encoder = None
-        self.forecaster = self.encoder
 
+        # Single-shot multi-output univariate time series forecaster.
+        # https://www.tensorflow.org/tutorials/structured_data/time_series#rnn_2
+        # TODO consider autoregressive multi-output model:
+        # https://www.tensorflow.org/tutorials/structured_data/time_series#advanced_autoregressive_model
+        self.forecaster_rnn = nn.LSTM(input_size=input_size,
+                                      hidden_size=embedding_size,
+                                      batch_first=True)
+        self.forecaster_out = nn.Linear(embedding_size, horizon)
+
+        self.num_train = None
         self.calibration_scores = None
         self.masks = None  # indicates where which parts of time series are
         # padded.
