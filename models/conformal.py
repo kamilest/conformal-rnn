@@ -110,4 +110,4 @@ class ConformalForecaster(nn.Module):
         # TODO +/- nonconformity score will not return *adaptive*
         # interval widths.
         return torch.vstack([out - self.critical_calibration_scores,
-                      out + self.critical_calibration_scores]).T
+                             out + self.critical_calibration_scores]).T
