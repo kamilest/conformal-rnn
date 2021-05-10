@@ -82,22 +82,25 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
 
     X = None  # X stores the time series values generated from features X_gen
     if mode == "noise-sweep":
-        X = [[(autoregressive(X_gen[k], w).reshape(total_seq_len, n_features) +
-               np.random.normal(0, noise_profile[u],
-                                (total_seq_len, n_features))).reshape(
-            total_seq_len, )
-            for k in range(n_samples)] for u in range(len(noise_profile))]
+        X = torch.FloatTensor(
+            [[(autoregressive(X_gen[k], w).reshape(total_seq_len, n_features) +
+               np.random.normal(0, noise_profile[u], (total_seq_len,
+                                                      n_features)))
+                  .reshape(total_seq_len, ) for k in range(n_samples)]
+             for u in range(len(noise_profile))])
 
 
     elif mode == "time-dependent":
-        X = [(autoregressive(X_gen[k], w).reshape(total_seq_len, n_features) + (
-            torch.normal(mean=0.0, std=torch.tensor(noise_profile)))
+        X = torch.FloatTensor(
+            [(autoregressive(X_gen[k], w)
+              .reshape(total_seq_len, n_features) + (
+                  torch.normal(mean=0.0, std=torch.tensor(noise_profile)))
               .detach().numpy().reshape(-1, n_features)).reshape(
-            total_seq_len, )
-            for k in range(n_samples)]
+                total_seq_len, )
+                for k in range(n_samples)])
 
-    Y = torch.FloatTensor(X[-horizon:])  # `horizon` of predictions
-    X = torch.nn.utils.rnn.pad_sequence(X[:-horizon], batch_first=True)
+    Y = torch.FloatTensor(X[:, -horizon:])  # `horizon` of predictions
+    X = torch.nn.utils.rnn.pad_sequence(X[:, -horizon], batch_first=True)
 
     dataset = torch.utils.data.TensorDataset(X, Y)
     return dataset
