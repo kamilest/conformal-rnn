@@ -35,6 +35,7 @@ class ConformalForecaster(nn.Module):
         self.num_train = None
         self.calibration_scores = None
         self.critical_calibration_score = None
+        self.alpha = alpha
 
     def forward(self, x):
         _, (h_n, c_n) = self.forecaster_rnn(x)
