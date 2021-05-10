@@ -59,15 +59,15 @@ def create_autoregressive_data(n_samples=100,
     return X, Y
 
 
-def generate_autoregressive_forecasts(n_samples=100,
-                                      seq_len=100,
-                                      n_features=1,
-                                      X_mean=1,
-                                      X_variance=2,
-                                      noise_profile=None,
-                                      memory_factor=0.9,
-                                      mode="time-dependent",
-                                      horizon=10):
+def generate_autoregressive_forecast_dataset(n_samples=100,
+                                             seq_len=100,
+                                             n_features=1,
+                                             X_mean=1,
+                                             X_variance=2,
+                                             noise_profile=None,
+                                             memory_factor=0.9,
+                                             mode="time-dependent",
+                                             horizon=10):
     total_seq_len = seq_len + horizon
     # Create the input features of the generating process
     X_gen = [np.random.normal(X_mean, X_variance, (total_seq_len,
@@ -86,7 +86,7 @@ def generate_autoregressive_forecasts(n_samples=100,
                np.random.normal(0, noise_profile[u],
                                 (total_seq_len, n_features))).reshape(
             total_seq_len, )
-              for k in range(n_samples)] for u in range(len(noise_profile))]
+            for k in range(n_samples)] for u in range(len(noise_profile))]
 
 
     elif mode == "time-dependent":
@@ -94,10 +94,10 @@ def generate_autoregressive_forecasts(n_samples=100,
             torch.normal(mean=0.0, std=torch.tensor(noise_profile)))
               .detach().numpy().reshape(-1, n_features)).reshape(
             total_seq_len, )
-             for k in range(n_samples)]
+            for k in range(n_samples)]
 
-    # Y_t corresponds to the value `horizon` steps away from X_t
-    Y = X[horizon:]
-    X = X[:-horizon]
+    Y = torch.FloatTensor(X[-horizon:])  # `horizon` of predictions
+    X = torch.nn.utils.rnn.pad_sequence(X[:-horizon], batch_first=True)
 
-    return X, Y
+    dataset = torch.utils.data.TensorDataset(X, Y)
+    return dataset
