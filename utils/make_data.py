@@ -99,8 +99,10 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                 total_seq_len, )
                 for k in range(n_samples)])
 
+    # TODO clean up (un)squeezing.
     Y = torch.FloatTensor(X[:, -horizon:])  # `horizon` of predictions
-    X = torch.nn.utils.rnn.pad_sequence(X[:, -horizon], batch_first=True)
+    X = torch.nn.utils.rnn.pad_sequence(X[:, :-horizon],
+                                        batch_first=True).unsqueeze(dim=-1)
 
     dataset = torch.utils.data.TensorDataset(X, Y)
     return dataset
