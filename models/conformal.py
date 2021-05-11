@@ -17,7 +17,8 @@ def cover(pred, target):
 
 
 class ConformalForecaster(nn.Module):
-    def __init__(self, embedding_size, input_size=1, horizon=1, alpha=0.05):
+    def __init__(self, embedding_size, input_size=1, horizon=1,
+                 error_rate=0.05):
         super(ConformalForecaster, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
@@ -41,8 +42,8 @@ class ConformalForecaster(nn.Module):
 
         self.num_train = None
         self.calibration_scores = None
-        self.critical_calibration_score = None
-        self.alpha = alpha
+        self.critical_calibration_scores = None
+        self.alpha = error_rate
 
     def forward(self, x):
         _, (h_n, c_n) = self.forecaster_rnn(x)
@@ -101,9 +102,10 @@ class ConformalForecaster(nn.Module):
         # Given p_{z}:=\frac{\left|\left\{i=m+1, \ldots, n+1: R_{i} \geq R_{n+1}\right\}\right|}{n-m+1}
         # and the accepted R_{n+1} = \Delta(y, f(x_{test})) are such that
         # p_{z} > \alpha we have that the nonconformity scores should be below
-        # the (corrected) alpha% of calibration scores.
+        # the (corrected) (1 - alpha)% of calibration scores.
         self.critical_calibration_scores = torch.tensor([np.quantile(
-            position_calibration_scores, q=self.alpha * (self.num_train + 1))
+            position_calibration_scores, q=1 - self.alpha * self.num_train / (
+                    self.num_train + 1))
             for position_calibration_scores in self.calibration_scores])
 
     def predict(self, x):
