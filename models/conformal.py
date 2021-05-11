@@ -49,7 +49,7 @@ class ConformalForecaster(nn.Module):
         _, (h_n, c_n) = self.forecaster_rnn(x)
         out = self.forecaster_out(h_n)
 
-        return out
+        return out.squeeze(dim=0)
 
     def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=150):
         # Train the forecaster to return correct multi-step predictions.
