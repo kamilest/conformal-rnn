@@ -78,7 +78,9 @@ class ConformalForecaster(nn.Module):
                 optimizer.step()
 
             mean_train_loss = train_loss / len(train_loader)
-            print('Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
+            if epoch % 50 == 0:
+                print(
+                    'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
         # Collect calibration scores
         self.calibrate(calibration_dataset)
@@ -112,5 +114,8 @@ class ConformalForecaster(nn.Module):
         """Forecasts the time series with conformal uncertainty intervals."""
         out = self(x)
         # TODO +/- nonconformity will not return *adaptive* interval widths.
+        # TODO correction for multiple comparisons for each multi-horizon step.
         return torch.vstack([out - self.critical_calibration_scores,
                              out + self.critical_calibration_scores]).T
+
+
