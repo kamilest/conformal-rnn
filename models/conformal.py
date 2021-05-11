@@ -97,9 +97,10 @@ class ConformalForecaster(nn.Module):
             self.eval()
             for sequences, targets in calibration_loader:
                 out = self(sequences)
-                calibration_scores.append(nonconformity(out, targets))
+                calibration_scores.extend(
+                    nonconformity(out, targets).detach().numpy())
 
-        self.calibration_scores = calibration_scores
+        self.calibration_scores = torch.tensor(calibration_scores).T
 
         # Given p_{z}:=\frac{\left|\left\{i=m+1, \ldots, n+1: R_{i} \geq R_{n+1}\right\}\right|}{n-m+1}
         # and the accepted R_{n+1} = \Delta(y, f(x_{test})) are such that
