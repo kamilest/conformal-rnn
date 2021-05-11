@@ -9,6 +9,13 @@ def nonconformity(output, target):
     return torch.nn.functional.l1_loss(output, target, reduction='none')
 
 
+def cover(pred, target):
+    # Returns True when the entire forecast fits into predicted conformal
+    # intervals.
+    return torch.all(
+        torch.logical_and(target >= pred[:, 0], target <= pred[:, 1])).item()
+
+
 class ConformalForecaster(nn.Module):
     def __init__(self, embedding_size, input_size=1, horizon=1, alpha=0.05):
         super(ConformalForecaster, self).__init__()
