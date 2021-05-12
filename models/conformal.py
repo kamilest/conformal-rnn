@@ -12,12 +12,13 @@ def nonconformity(output, target):
 def cover(pred, target):
     # Returns True when the entire forecast fits into predicted conformal
     # intervals.
+    # TODO joint vs independent coverage
     return torch.all(
         torch.logical_and(target >= pred[:, 0], target <= pred[:, 1])).item()
 
 
 class ConformalForecaster(nn.Module):
-    def __init__(self, embedding_size, input_size=1, horizon=1,
+    def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  error_rate=0.05):
         super(ConformalForecaster, self).__init__()
         # input_size indicates the number of features in the time series
@@ -31,11 +32,10 @@ class ConformalForecaster(nn.Module):
         # TODO try the RNN autoencoder trained on reconstruction error.
         self.encoder = None
 
-        # TODO consider autoregressive multi-output model:
-        # https://www.tensorflow.org/tutorials/structured_data/time_series#advanced_autoregressive_model
         self.forecaster_rnn = nn.LSTM(input_size=input_size,
                                       hidden_size=embedding_size,
                                       batch_first=True)
+        self.forecaster_out = nn.Linear(embedding_size, output_size)
 
         self.horizon = horizon
         self.alpha = error_rate
@@ -45,9 +45,11 @@ class ConformalForecaster(nn.Module):
         self.critical_calibration_scores = None
 
     def forward(self, x):
-        h, (h_n, c_n) = self.forecaster_rnn(x)
+        # [batch, seq_len, embedding_size]
+        h, _ = self.forecaster_rnn(x)
 
-        return h[:, -self.horizon:, :]
+        # [batch, horizon, output_size, 1]
+        return self.forecaster_out(h[:, -self.horizon:, :]).unsqueeze(-1)
 
     def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=150):
         # Train the forecaster to return correct multi-step predictions.
@@ -111,10 +113,8 @@ class ConformalForecaster(nn.Module):
 
     def predict(self, x):
         """Forecasts the time series with conformal uncertainty intervals."""
-        out = self(x)
+        out = self(x).squeeze()
         # TODO +/- nonconformity will not return *adaptive* interval widths.
         # TODO correction for multiple comparisons for each multi-horizon step.
         return torch.vstack([out - self.critical_calibration_scores,
                              out + self.critical_calibration_scores]).T
-
-
