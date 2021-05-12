@@ -31,25 +31,23 @@ class ConformalForecaster(nn.Module):
         # TODO try the RNN autoencoder trained on reconstruction error.
         self.encoder = None
 
-        # Single-shot multi-output univariate time series forecaster.
-        # https://www.tensorflow.org/tutorials/structured_data/time_series#rnn_2
         # TODO consider autoregressive multi-output model:
         # https://www.tensorflow.org/tutorials/structured_data/time_series#advanced_autoregressive_model
         self.forecaster_rnn = nn.LSTM(input_size=input_size,
                                       hidden_size=embedding_size,
                                       batch_first=True)
-        self.forecaster_out = nn.Linear(embedding_size, horizon)
+
+        self.horizon = horizon
+        self.alpha = error_rate
 
         self.num_train = None
         self.calibration_scores = None
         self.critical_calibration_scores = None
-        self.alpha = error_rate
 
     def forward(self, x):
-        _, (h_n, c_n) = self.forecaster_rnn(x)
-        out = self.forecaster_out(h_n)
+        h, (h_n, c_n) = self.forecaster_rnn(x)
 
-        return out.squeeze(dim=0)
+        return h[:, -self.horizon:, :]
 
     def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=150):
         # Train the forecaster to return correct multi-step predictions.
