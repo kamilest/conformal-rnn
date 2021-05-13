@@ -44,7 +44,17 @@ class ConformalForecaster(nn.Module):
         self.calibration_scores = None
         self.critical_calibration_scores = None
 
-    def forward(self, x):
+    def forward(self, x, len_x):
+        # len_x : torch.LongTensor
+        # 		  Length of sequences (b, )
+        sorted_len, idx = len_x.sort(dim=0, descending=True)
+        sorted_x = x[idx]
+
+        # Convert to packed sequence batch
+        packed_x = torch.nn.utils.rnn.pack_padded_sequence(sorted_x,
+                                                           lengths=sorted_len,
+                                                           batch_first=True)
+
         # [batch, seq_len, embedding_size]
         h, _ = self.forecaster_rnn(x)
 
