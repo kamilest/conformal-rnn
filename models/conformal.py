@@ -56,10 +56,21 @@ class ConformalForecaster(nn.Module):
                                                            batch_first=True)
 
         # [batch, seq_len, embedding_size]
-        h, _ = self.forecaster_rnn(x)
+        packed_h, _ = self.forecaster_rnn(packed_x)
+
+        max_seq_len = x.size(1)
+        padded_out, _ = torch.nn.utils.rnn.pad_packed_sequence(packed_h,
+                                                               batch_first=True,
+                                                               total_length=max_seq_len)
+
+        _, reverse_idx = idx.sort(dim=0, descending=False)
+        padded_out = padded_out[reverse_idx]
 
         # [batch, horizon, output_size, 1]
-        return self.forecaster_out(h[:, -self.horizon:, :]).unsqueeze(-1)
+        out = self.forecaster_out(
+            padded_out[:, -self.horizon:, :]).unsqueeze(-1)
+
+        return out
 
     def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=150):
         # Train the forecaster to return correct multi-step predictions.
