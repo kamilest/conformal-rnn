@@ -48,6 +48,22 @@ def create_autoregressive_data(n_samples=100,
     return X, Y
 
 
+class AutoregressiveForecastDataset(torch.utils.data.Dataset):
+    """Synthetic autoregressive forecast dataset."""
+
+    def __init__(self, X, Y, sequence_lengths):
+        super(AutoregressiveForecastDataset, self).__init__()
+        self.X = X
+        self.Y = Y
+        self.sequence_lengths = sequence_lengths
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.Y[idx], self.sequence_lengths[idx]
+
+
 def generate_autoregressive_forecast_dataset(n_samples=100,
                                              seq_len=100,
                                              n_features=1,
@@ -119,4 +135,4 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
     # Y: [n_samples, horizon, n_features]
     Y_tensor = torch.nn.utils.rnn.pad_sequence(Y, batch_first=True)
 
-    return torch.utils.data.TensorDataset(X_tensor, Y_tensor)
+    return AutoregressiveForecastDataset(X_tensor, Y_tensor, sequence_lengths)
