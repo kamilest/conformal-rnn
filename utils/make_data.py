@@ -127,8 +127,6 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
             Y.append(seq[-(seq_len - horizon):])
 
     # TODO clean up (un)squeezing.
-    # TODO generate padded tensors and the LongTensor of sequence lengths.
-
     # X: [n_samples, max_seq_len, n_features]
     X_tensor = torch.nn.utils.rnn.pad_sequence(X, batch_first=True)
 
