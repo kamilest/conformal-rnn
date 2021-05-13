@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-from torch import nn
 
 
 def nonconformity(output, target):
@@ -17,7 +16,7 @@ def cover(pred, target):
         torch.logical_and(target >= pred[:, 0], target <= pred[:, 1])).item()
 
 
-class ConformalForecaster(nn.Module):
+class ConformalForecaster(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  error_rate=0.05):
         super(ConformalForecaster, self).__init__()
@@ -32,21 +31,19 @@ class ConformalForecaster(nn.Module):
         # TODO try the RNN autoencoder trained on reconstruction error.
         self.encoder = None
 
-        self.forecaster_rnn = nn.LSTM(input_size=input_size,
-                                      hidden_size=embedding_size,
-                                      batch_first=True)
-        self.forecaster_out = nn.Linear(embedding_size, output_size)
+        self.forecaster_rnn = torch.nn.LSTM(input_size=input_size,
+                                            hidden_size=embedding_size,
+                                            batch_first=True)
+        self.forecaster_out = torch.nn.Linear(embedding_size, output_size)
 
         self.horizon = horizon
         self.alpha = error_rate
 
-        self.num_train = None
+        self.n_train = None
         self.calibration_scores = None
         self.critical_calibration_scores = None
 
     def forward(self, x, len_x):
-        # len_x : torch.LongTensor
-        # 		  Length of sequences (b, )
         sorted_len, idx = len_x.sort(dim=0, descending=True)
         sorted_x = x[idx]
 
@@ -77,7 +74,7 @@ class ConformalForecaster(nn.Module):
         train_loader = torch.utils.data.DataLoader(dataset,
                                                    batch_size=batch_size,
                                                    shuffle=True)
-        self.num_train = len(dataset)
+        self.n_train = len(dataset)
 
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         criterion = torch.nn.MSELoss()
@@ -134,8 +131,8 @@ class ConformalForecaster(nn.Module):
         # the index of the (1 − ε)-percentile non-conformity score, αs, such as
         # s = ⌊ε(q + 1)⌋.
         self.critical_calibration_scores = torch.tensor([np.quantile(
-            position_calibration_scores, q=1 - self.alpha * self.num_train / (
-                    self.num_train + 1))
+            position_calibration_scores, q=1 - self.alpha * self.n_train / (
+                    self.n_train + 1))
             for position_calibration_scores in self.calibration_scores])
 
     def predict(self, x):
