@@ -106,6 +106,12 @@ class ConformalForecaster(nn.Module):
         # and the accepted R_{n+1} = \Delta(y, f(x_{test})) are such that
         # p_{z} > \alpha we have that the nonconformity scores should be below
         # the (corrected) (1 - alpha)% of calibration scores.
+
+        # TODO check: By applying (3) to Zcal, we get the sequence of
+        # non-conformity scores and then sort them in descending order
+        # α1, . . . , αq. Then, depending on the significance level ε, we define
+        # the index of the (1 − ε)-percentile non-conformity score, αs, such as
+        # s = ⌊ε(q + 1)⌋.
         self.critical_calibration_scores = torch.tensor([np.quantile(
             position_calibration_scores, q=1 - self.alpha * self.num_train / (
                     self.num_train + 1))
