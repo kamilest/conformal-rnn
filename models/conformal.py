@@ -74,13 +74,7 @@ class ConformalForecaster(torch.nn.Module):
 
         return out
 
-    def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=150):
-        # Train the forecaster to return correct multi-step predictions.
-        train_loader = torch.utils.data.DataLoader(dataset,
-                                                   batch_size=batch_size,
-                                                   shuffle=True)
-        self.n_train = len(dataset)
-
+    def train_forecaster(self, train_loader, epochs, lr):
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         criterion = torch.nn.MSELoss()
 
@@ -104,9 +98,6 @@ class ConformalForecaster(torch.nn.Module):
             if epoch % 50 == 0:
                 print(
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
-
-        # Collect calibration scores
-        self.calibrate(calibration_dataset)
 
     def calibrate(self, calibration_dataset):
         """
@@ -139,6 +130,17 @@ class ConformalForecaster(torch.nn.Module):
             position_calibration_scores, q=1 - self.alpha * self.n_train / (
                     self.n_train + 1))
             for position_calibration_scores in self.calibration_scores])
+
+    def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=32):
+        train_loader = torch.utils.data.DataLoader(dataset,
+                                                   batch_size=batch_size,
+                                                   shuffle=True)
+        self.n_train = len(dataset)
+
+        # Train the multi-horizon forecaster.
+        self.train_forecaster(train_loader, epochs, lr)
+        # Collect calibration scores
+        self.calibrate(calibration_dataset)
 
     def predict(self, x):
         """Forecasts the time series with conformal uncertainty intervals."""
