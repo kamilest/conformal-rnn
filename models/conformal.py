@@ -109,8 +109,8 @@ class ConformalForecaster(torch.nn.Module):
 
         with torch.set_grad_enabled(False):
             self.eval()
-            for sequences, targets in calibration_loader:
-                out = self(sequences)
+            for sequences, targets, lengths in calibration_loader:
+                out = self(sequences, lengths)
                 calibration_scores.extend(
                     nonconformity(out, targets).detach().numpy())
 
