@@ -7,15 +7,23 @@ def nonconformity(output, target):
     return torch.nn.functional.l1_loss(output, target, reduction='none')
 
 
-def cover(pred, target, coverage_mode='joint'):
-    # Returns True when the entire forecast fits into predicted conformal
-    # intervals.
-    horizon_coverages = torch.logical_and(target.flatten() >= pred[:, 0],
-                                          target.flatten() <= pred[:, 1])
+def cover(intervals, target, coverage_mode='joint'):
+    """ Determines whether intervals cover the target prediction.
+
+    Depending on the coverage_mode (either 'joint' or 'independent), will return
+    either a list of whether each target or all targets satisfy the coverage.
+    """
+
+    lower, upper = intervals
+
+    # [batch, horizon, n_outputs]
+    horizon_coverages = torch.logical_and(target >= lower, target <= upper)
     if coverage_mode == 'independent':
-        horizon_coverages.tolist()
+        # [batch, horizon, n_outputs]
+        return horizon_coverages.tolist()
     else:  # joint coverage
-        return torch.all(horizon_coverages).item()
+        # [batch, n_outputs]
+        return torch.all(horizon_coverages, dim=1).tolist()
 
 
 class ConformalForecaster(torch.nn.Module):
@@ -165,10 +173,11 @@ class ConformalForecaster(torch.nn.Module):
         # TODO +/- nonconformity will not return *adaptive* interval widths.
         out = self(x, len_x)
         if coverage_mode == 'independent':
-            return torch.vstack(
-                [out - self.critical_calibration_scores,
-                 out + self.critical_calibration_scores]).T.squeeze()
+            # [batch_size, horizon, n_outputs]
+            lower = out - self.critical_calibration_scores
+            upper = out + self.critical_calibration_scores
         else:
-            return torch.vstack(
-                [out - self.corrected_critical_calibration_scores,
-                 out + self.corrected_critical_calibration_scores]).T.squeeze()
+            # [batch_size, horizon, n_outputs]
+            lower = out - self.corrected_critical_calibration_scores
+            upper = out + self.corrected_critical_calibration_scores
+        return lower, upper
