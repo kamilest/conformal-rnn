@@ -53,7 +53,7 @@ class ConformalForecaster(torch.nn.Module):
                                                            batch_first=True)
 
         # [batch, seq_len, embedding_size]
-        packed_h, _ = self.forecaster_rnn(packed_x)
+        packed_h, _ = self.forecaster_rnn(packed_x.float())
 
         max_seq_len = x.size(1)
         padded_out, _ = torch.nn.utils.rnn.pad_packed_sequence(packed_h,
@@ -67,6 +67,12 @@ class ConformalForecaster(torch.nn.Module):
         out = self.forecaster_out(
             padded_out[:, -self.horizon:, :]).unsqueeze(-1)
 
+        lengths_mask = torch.zeros(x.size(0), self.horizon, x.size(1))
+        for i, l in enumerate(len_x):
+            lengths_mask[i, :min(l, self.horizon), :] = 1
+
+        out = lengths_mask * out
+
         return out
 
     def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=150):
@@ -79,11 +85,11 @@ class ConformalForecaster(torch.nn.Module):
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         criterion = torch.nn.MSELoss()
 
+        self.train()
         for epoch in range(epochs):
-            self.train()
             train_loss = 0.
 
-            for sequences, targets in train_loader:  # iterate through batches
+            for sequences, targets, lengths in train_loader:
                 optimizer.zero_grad()
 
                 out = self(sequences)
