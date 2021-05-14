@@ -12,9 +12,11 @@ def cover(intervals, target, coverage_mode='joint'):
 
     Depending on the coverage_mode (either 'joint' or 'independent), will return
     either a list of whether each target or all targets satisfy the coverage.
+
+    intervals: shape [batch_size, 2, horizon, n_outputs]
     """
 
-    lower, upper = intervals
+    lower, upper = intervals[:, 0], intervals[:, 1]
 
     # [batch, horizon, n_outputs]
     horizon_coverages = torch.logical_and(target >= lower, target <= upper)
@@ -173,6 +175,7 @@ class ConformalForecaster(torch.nn.Module):
         """Forecasts the time series with conformal uncertainty intervals."""
         # TODO +/- nonconformity will not return *adaptive* interval widths.
         out = self(x, len_x)
+
         if coverage_mode == 'independent':
             # [batch_size, horizon, n_outputs]
             lower = out - self.critical_calibration_scores
@@ -181,4 +184,26 @@ class ConformalForecaster(torch.nn.Module):
             # [batch_size, horizon, n_outputs]
             lower = out - self.corrected_critical_calibration_scores
             upper = out + self.corrected_critical_calibration_scores
-        return lower, upper
+
+        # [batch_size, 2, horizon, n_outputs]
+        return torch.stack((lower, upper), dim=1)
+
+    def evaluate_coverage(self, test_dataset, coverage_mode='joint'):
+        self.eval()
+
+        coverages, intervals = [], []
+        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
+
+        for sequences, targets, lengths in test_loader:
+            predictions = self.predict(sequences, lengths)
+            intervals.append(predictions)
+            coverages.append(cover(predictions, targets,
+                                   coverage_mode=coverage_mode))
+
+        # [n_samples, (1 | horizon), n_outputs] containing booleans
+        coverages = torch.cat(coverages)
+
+        # [n_samples, 2, horizon, n_outputs] containing lower and upper bounds
+        intervals = torch.cat(intervals)
+
+        return coverages, intervals
