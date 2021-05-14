@@ -192,9 +192,9 @@ class ConformalForecaster(torch.nn.Module):
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
 
         for sequences, targets, lengths in test_loader:
-            predictions = self.predict(sequences, lengths)
-            intervals.append(predictions)
-            coverages.append(coverage(predictions, targets,
+            batch_intervals = self.predict(sequences, lengths)
+            intervals.append(batch_intervals)
+            coverages.append(coverage(batch_intervals, targets,
                                       coverage_mode=coverage_mode))
 
         # [n_samples, (1 | horizon), n_outputs] containing booleans
