@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 
 
@@ -42,6 +41,7 @@ class ConformalForecaster(torch.nn.Module):
         self.n_train = None
         self.calibration_scores = None
         self.critical_calibration_scores = None
+        self.corrected_critical_calibration_scores = None
 
     def forward(self, x, len_x):
         sorted_len, idx = len_x.sort(dim=0, descending=True)
@@ -126,10 +126,18 @@ class ConformalForecaster(torch.nn.Module):
         # α1, . . . , αq. Then, depending on the significance level ε, we define
         # the index of the (1 − ε)-percentile non-conformity score, αs, such as
         # s = ⌊ε(q + 1)⌋.
-        corrected_alpha = self.alpha / self.horizon
-        self.critical_calibration_scores = torch.tensor([np.quantile(
-            position_calibration_scores, q=1 - corrected_alpha * self.n_train
+
+        self.critical_calibration_scores = torch.tensor([torch.quantile(
+            position_calibration_scores, q=1 - self.alpha * self.n_train
                                            / (self.n_train + 1))
+            for position_calibration_scores in self.calibration_scores])
+
+        corrected_alpha = self.alpha / self.horizon
+        self.corrected_critical_calibration_scores = torch.tensor([
+            torch.quantile(
+                position_calibration_scores,
+                q=1 - corrected_alpha * self.n_train
+                  / (self.n_train + 1))
             for position_calibration_scores in self.calibration_scores])
 
     def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=32):
