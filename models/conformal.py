@@ -160,8 +160,8 @@ class ConformalForecaster(torch.nn.Module):
             for position_calibration_scores in feature_calibration_scores]
             for feature_calibration_scores in self.calibration_scores]).T
 
-    def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=32):
-        train_loader = torch.utils.data.DataLoader(dataset,
+    def fit(self, train_dataset, calibration_dataset, epochs, lr, batch_size=32):
+        train_loader = torch.utils.data.DataLoader(train_dataset,
                                                    batch_size=batch_size,
                                                    shuffle=True)
         self.n_train = len(dataset)
