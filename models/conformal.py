@@ -7,12 +7,15 @@ def nonconformity(output, target):
     return torch.nn.functional.l1_loss(output, target, reduction='none')
 
 
-def cover(pred, target):
+def cover(pred, target, coverage_mode='joint'):
     # Returns True when the entire forecast fits into predicted conformal
     # intervals.
-    # TODO joint vs independent coverage
-    return torch.all(torch.logical_and(target.flatten() >= pred[:, 0],
-                                       target.flatten() <= pred[:, 1])).item()
+    horizon_coverages = torch.logical_and(target.flatten() >= pred[:, 0],
+                                          target.flatten() <= pred[:, 1])
+    if coverage_mode == 'independent':
+        horizon_coverages.tolist()
+    else:  # joint coverage
+        return torch.all(horizon_coverages).item()
 
 
 class ConformalForecaster(torch.nn.Module):
@@ -151,9 +154,15 @@ class ConformalForecaster(torch.nn.Module):
         # Collect calibration scores
         self.calibrate(calibration_dataset)
 
-    def predict(self, x, len_x):
+    def predict(self, x, len_x, coverage_mode='joint'):
         """Forecasts the time series with conformal uncertainty intervals."""
-        out = self(x, len_x)
         # TODO +/- nonconformity will not return *adaptive* interval widths.
-        return torch.vstack([out - self.critical_calibration_scores,
-                             out + self.critical_calibration_scores]).T.squeeze()
+        out = self(x, len_x)
+        if coverage_mode == 'independent':
+            return torch.vstack(
+                [out - self.critical_calibration_scores,
+                 out + self.critical_calibration_scores]).T.squeeze()
+        else:
+            return torch.vstack(
+                [out - self.corrected_critical_calibration_scores,
+                 out + self.corrected_critical_calibration_scores]).T.squeeze()
