@@ -128,9 +128,11 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
 
     # TODO clean up (un)squeezing.
     # X: [n_samples, max_seq_len, n_features]
-    X_tensor = torch.nn.utils.rnn.pad_sequence(X, batch_first=True)
+    X_tensor = torch.nn.utils.rnn.pad_sequence(X, batch_first=True).float()
 
     # Y: [n_samples, horizon, n_features]
-    Y_tensor = torch.nn.utils.rnn.pad_sequence(Y, batch_first=True)
+    Y_tensor = torch.nn.utils.rnn.pad_sequence(Y, batch_first=True).float()
+
+    sequence_lengths -= horizon
 
     return AutoregressiveForecastDataset(X_tensor, Y_tensor, sequence_lengths)
