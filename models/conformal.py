@@ -114,10 +114,11 @@ class ConformalForecaster(torch.nn.Module):
             self.eval()
             for sequences, targets, lengths in calibration_loader:
                 out = self(sequences, lengths)
-                calibration_scores.extend(
-                    nonconformity(out, targets).detach().numpy())
+                # n_batches: [batch_size, horizon, output_size]
+                calibration_scores.append(nonconformity(out, targets))
 
-        self.calibration_scores = torch.tensor(calibration_scores).T
+        # [output_size, horizon, n_samples]
+        self.calibration_scores = torch.vstack(calibration_scores).T
 
         # Given p_{z}:=\frac{\left|\left\{i=m+1, \ldots, n+1: R_{i} \geq R_{n+1}\right\}\right|}{n-m+1}
         # and the accepted R_{n+1} = \Delta(y, f(x_{test})) are such that
@@ -130,18 +131,23 @@ class ConformalForecaster(torch.nn.Module):
         # the index of the (1 − ε)-percentile non-conformity score, αs, such as
         # s = ⌊ε(q + 1)⌋.
 
-        self.critical_calibration_scores = torch.tensor([torch.quantile(
+        # [horizon, output_size]
+        self.critical_calibration_scores = torch.tensor([[torch.quantile(
             position_calibration_scores, q=1 - self.alpha * self.n_train
                                            / (self.n_train + 1))
-            for position_calibration_scores in self.calibration_scores])
+            for position_calibration_scores in feature_calibration_scores]
+            for feature_calibration_scores in self.calibration_scores]).T
 
+        # Bonferroni corrected calibration scores.
+        # [horizon, output_size]
         corrected_alpha = self.alpha / self.horizon
-        self.corrected_critical_calibration_scores = torch.tensor([
+        self.corrected_critical_calibration_scores = torch.tensor([[
             torch.quantile(
                 position_calibration_scores,
                 q=1 - corrected_alpha * self.n_train
                   / (self.n_train + 1))
-            for position_calibration_scores in self.calibration_scores])
+            for position_calibration_scores in feature_calibration_scores]
+            for feature_calibration_scores in self.calibration_scores]).T
 
     def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=32):
         train_loader = torch.utils.data.DataLoader(dataset,
