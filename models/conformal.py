@@ -126,9 +126,10 @@ class ConformalForecaster(torch.nn.Module):
         # α1, . . . , αq. Then, depending on the significance level ε, we define
         # the index of the (1 − ε)-percentile non-conformity score, αs, such as
         # s = ⌊ε(q + 1)⌋.
+        corrected_alpha = self.alpha / self.horizon
         self.critical_calibration_scores = torch.tensor([np.quantile(
-            position_calibration_scores, q=1 - self.alpha * self.n_train / (
-                    self.n_train + 1))
+            position_calibration_scores, q=1 - corrected_alpha * self.n_train
+                                           / (self.n_train + 1))
             for position_calibration_scores in self.calibration_scores])
 
     def fit(self, dataset, calibration_dataset, epochs, lr, batch_size=32):
@@ -146,6 +147,5 @@ class ConformalForecaster(torch.nn.Module):
         """Forecasts the time series with conformal uncertainty intervals."""
         out = self(x, len_x)
         # TODO +/- nonconformity will not return *adaptive* interval widths.
-        # TODO correction for multiple comparisons for each multi-horizon step.
         return torch.vstack([out - self.critical_calibration_scores,
                              out + self.critical_calibration_scores]).T.squeeze()
