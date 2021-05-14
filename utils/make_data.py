@@ -75,13 +75,8 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              horizon=10):
 
     # TODO replace total_seq_len with sampled sequence lengths.
-    sequence_lengths = [seq_len + horizon] * n_samples
+    sequence_lengths = np.array([seq_len + horizon] * n_samples)
     max_seq_len = np.max(sequence_lengths)
-
-    # Examples with sequence lenghts <=`horizon` don't give any
-    # information and should be excluded.
-    # assert np.min(sequence_lengths) > horizon
-    assert sequence_lengths == n_samples
 
     # Create the input features of the generating process
     X_gen = [np.random.normal(X_mean, X_variance, (seq_len,
@@ -112,7 +107,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         ar = [autoregressive(x, w).reshape(-1, n_features) for x in X_gen]
         noise = [np.random.normal(0., noise_profile).reshape(-1, n_features) for
                  noise_profile in noise_profiles]
-        X_full = [i + j for i, j in zip(ar, noise)]
+        X_full = [torch.tensor(i + j) for i, j in zip(ar, noise)]
 
     # Splitting time series into training sequence X and target sequence Y;
     # Y stores the time series predicted targets `horizon` steps away
@@ -126,6 +121,10 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
             X.append(seq[:seq_len - horizon])
             Y.append(seq[-(seq_len - horizon):])
 
+        # Examples with sequence lenghts <=`horizon` don't give any
+        # information and should be excluded.
+        # assert np.min(sequence_lengths) > horizon
+
     # TODO clean up (un)squeezing.
     # X: [n_samples, max_seq_len, n_features]
     X_tensor = torch.nn.utils.rnn.pad_sequence(X, batch_first=True).float()
@@ -133,6 +132,6 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
     # Y: [n_samples, horizon, n_features]
     Y_tensor = torch.nn.utils.rnn.pad_sequence(Y, batch_first=True).float()
 
-    sequence_lengths -= horizon
+    sequence_lengths = sequence_lengths - horizon
 
     return AutoregressiveForecastDataset(X_tensor, Y_tensor, sequence_lengths)
