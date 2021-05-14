@@ -18,12 +18,13 @@ def cover(intervals, target, coverage_mode='joint'):
 
     # [batch, horizon, n_outputs]
     horizon_coverages = torch.logical_and(target >= lower, target <= upper)
+
     if coverage_mode == 'independent':
         # [batch, horizon, n_outputs]
-        return horizon_coverages.tolist()
+        return horizon_coverages
     else:  # joint coverage
         # [batch, n_outputs]
-        return torch.all(horizon_coverages, dim=1).tolist()
+        return torch.all(horizon_coverages, dim=1)
 
 
 class ConformalForecaster(torch.nn.Module):
