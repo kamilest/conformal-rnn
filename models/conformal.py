@@ -52,7 +52,6 @@ class ConformalForecaster(torch.nn.Module):
         self.horizon = horizon
         self.alpha = error_rate
 
-        self.n_train = None
         self.calibration_scores = None
         self.critical_calibration_scores = None
         self.corrected_critical_calibration_scores = None
@@ -113,7 +112,7 @@ class ConformalForecaster(torch.nn.Module):
                 print(
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
-    def calibrate(self, calibration_dataset):
+    def calibrate(self, calibration_dataset, n_train):
         """
         Computes the nonconformity scores for the calibration dataset.
         """
@@ -144,8 +143,8 @@ class ConformalForecaster(torch.nn.Module):
 
         # [horizon, output_size]
         self.critical_calibration_scores = torch.tensor([[torch.quantile(
-            position_calibration_scores, q=1 - self.alpha * self.n_train
-                                           / (self.n_train + 1))
+            position_calibration_scores,
+            q=1 - self.alpha * n_train / (n_train + 1))
             for position_calibration_scores in feature_calibration_scores]
             for feature_calibration_scores in self.calibration_scores]).T
 
@@ -155,8 +154,7 @@ class ConformalForecaster(torch.nn.Module):
         self.corrected_critical_calibration_scores = torch.tensor([[
             torch.quantile(
                 position_calibration_scores,
-                q=1 - corrected_alpha * self.n_train
-                  / (self.n_train + 1))
+                q=1 - corrected_alpha * n_train / (n_train + 1))
             for position_calibration_scores in feature_calibration_scores]
             for feature_calibration_scores in self.calibration_scores]).T
 
@@ -164,12 +162,11 @@ class ConformalForecaster(torch.nn.Module):
         train_loader = torch.utils.data.DataLoader(train_dataset,
                                                    batch_size=batch_size,
                                                    shuffle=True)
-        self.n_train = len(dataset)
 
         # Train the multi-horizon forecaster.
         self.train_forecaster(train_loader, epochs, lr)
         # Collect calibration scores
-        self.calibrate(calibration_dataset)
+        self.calibrate(calibration_dataset, n_train=len(train_dataset))
 
     def predict(self, x, len_x, coverage_mode='joint'):
         """Forecasts the time series with conformal uncertainty intervals."""
