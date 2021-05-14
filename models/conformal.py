@@ -63,11 +63,10 @@ class ConformalForecaster(torch.nn.Module):
         _, reverse_idx = idx.sort(dim=0, descending=False)
         padded_out = padded_out[reverse_idx]
 
-        # [batch, horizon, output_size, 1]
-        out = self.forecaster_out(
-            padded_out[:, -self.horizon:, :]).unsqueeze(-1)
+        # [batch, horizon, output_size]
+        out = self.forecaster_out(padded_out[:, -self.horizon:, :])
 
-        lengths_mask = torch.zeros(x.size(0), self.horizon, x.size(1))
+        lengths_mask = torch.zeros(x.size(0), self.horizon, x.size(2))
         for i, l in enumerate(len_x):
             lengths_mask[i, :min(l, self.horizon), :] = 1
 
