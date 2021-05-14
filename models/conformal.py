@@ -142,10 +142,10 @@ class ConformalForecaster(torch.nn.Module):
         # Collect calibration scores
         self.calibrate(calibration_dataset)
 
-    def predict(self, x):
+    def predict(self, x, len_x):
         """Forecasts the time series with conformal uncertainty intervals."""
-        out = self(x).squeeze()
+        out = self(x, len_x)
         # TODO +/- nonconformity will not return *adaptive* interval widths.
         # TODO correction for multiple comparisons for each multi-horizon step.
         return torch.vstack([out - self.critical_calibration_scores,
-                             out + self.critical_calibration_scores]).T
+                             out + self.critical_calibration_scores]).T.squeeze()
