@@ -12,8 +12,8 @@ def cover(pred, target):
     # Returns True when the entire forecast fits into predicted conformal
     # intervals.
     # TODO joint vs independent coverage
-    return torch.all(
-        torch.logical_and(target >= pred[:, 0], target <= pred[:, 1])).item()
+    return torch.all(torch.logical_and(target.flatten() >= pred[:, 0],
+                                       target.flatten() <= pred[:, 1])).item()
 
 
 class ConformalForecaster(torch.nn.Module):
