@@ -91,7 +91,7 @@ class ConformalForecaster(torch.nn.Module):
             for sequences, targets, lengths in train_loader:
                 optimizer.zero_grad()
 
-                out = self(sequences)
+                out = self(sequences, lengths)
 
                 loss = criterion(out, targets)
                 loss.backward()
