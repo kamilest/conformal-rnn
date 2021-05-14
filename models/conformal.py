@@ -7,8 +7,8 @@ def nonconformity(output, target):
     return torch.nn.functional.l1_loss(output, target, reduction='none')
 
 
-def cover(intervals, target, coverage_mode='joint'):
-    """ Determines whether intervals cover the target prediction.
+def coverage(intervals, target, coverage_mode='joint'):
+    """ Determines whether intervals coverage the target prediction.
 
     Depending on the coverage_mode (either 'joint' or 'independent), will return
     either a list of whether each target or all targets satisfy the coverage.
@@ -197,8 +197,8 @@ class ConformalForecaster(torch.nn.Module):
         for sequences, targets, lengths in test_loader:
             predictions = self.predict(sequences, lengths)
             intervals.append(predictions)
-            coverages.append(cover(predictions, targets,
-                                   coverage_mode=coverage_mode))
+            coverages.append(coverage(predictions, targets,
+                                      coverage_mode=coverage_mode))
 
         # [n_samples, (1 | horizon), n_outputs] containing booleans
         coverages = torch.cat(coverages)
