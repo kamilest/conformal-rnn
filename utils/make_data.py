@@ -14,7 +14,7 @@ def autoregressive(X_gen, w):
 
 
 # https://www.statsmodels.org/devel/examples/notebooks/generated/statespace_seasonal.html
-def seasonal(duration, periodicity, amplitude=1., harmonics=None):
+def seasonal(duration, periodicity, amplitude=1., harmonics=1):
     harmonics = harmonics if harmonics else int(np.floor(periodicity / 2))
 
     lambda_p = 2 * np.pi / float(periodicity)
