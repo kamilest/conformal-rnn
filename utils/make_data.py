@@ -90,10 +90,11 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         # Default increasing noise profile.
         # TODO sampling frequencies
         # TODO stationarity
-        noise_vars = [[noise_profile[s // sl] for s in range(sl)]
-                      for sl in sequence_lengths]
+        noise_vars = [[noise_profile[s // (sl // len(noise_profile))]
+                      for s in range(sl)] for sl in sequence_lengths]
     elif noise_mode == 'noise-sweep':
-        noise_vars = [[noise_profile[s // len(sequence_lengths)]] *
+        noise_vars = [[noise_profile[s // (
+                len(sequence_lengths) // len(noise_profile))]] *
                       sequence_lengths[s] for s in range(len(sequence_lengths))]
     else:
         # No additional noise beyond the variance of X_gen
