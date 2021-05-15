@@ -6,7 +6,8 @@ import torch
 
 
 def autoregressive(X_gen, w):
-    """ Generates a single time series example. """
+    """ Generates the autoregressive component of a single time series
+    example. """
     return np.array(
         [np.sum(X_gen[0:k + 1] * np.flip(w[0:k + 1]).reshape(-1, 1)) for k in
          range(len(X_gen))])
@@ -69,9 +70,9 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              n_features=1,
                                              X_mean=1,
                                              X_variance=2,
-                                             noise_profiles=None,
                                              memory_factor=0.9,
-                                             mode="time-dependent",
+                                             mode='time-dependent',
+                                             noise_profile='increasing',
                                              horizon=10):
 
     # TODO replace total_seq_len with sampled sequence lengths.
@@ -85,13 +86,20 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
 
     w = np.array([memory_factor ** k for k in range(max_seq_len)])
 
-    if noise_profiles is None:
+    if noise_profile == 'increasing':
         # Default increasing noise profile.
         # TODO sampling frequencies
         # TODO stationarity
         noise_profiles = [
             [1 / (seq_len - 1) * k for k in range(max(1, seq_len))] for seq_len
             in sequence_lengths]
+    elif noise_profile == 'constant':
+        noise_profiles = [[1 for _ in range(max(1, seq_len))]
+                          for seq_len in sequence_lengths]
+    else:
+        # No additional noise beyond the variance of X_gen
+        noise_profiles = [[0 for _ in range(max(1, seq_len))]
+                          for seq_len in sequence_lengths]
 
     # if mode == "noise-sweep":
     #     X = [[(autoregressive(X_gen[k], w).reshape(sequence_lengths[k],
@@ -122,7 +130,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
             Y.append(seq[-(seq_len - horizon):])
 
         # Examples with sequence lenghts <=`horizon` don't give any
-        # information and should be excluded.
+        # information and are excluded.
         # assert np.min(sequence_lengths) > horizon
 
     # X: [n_samples, max_seq_len, n_features]
