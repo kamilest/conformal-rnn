@@ -58,13 +58,13 @@ class ConformalForecaster(torch.nn.Module):
         self.critical_calibration_scores = None
         self.corrected_critical_calibration_scores = None
 
-    def forward(self, x):
+    def forward(self, x, state=None):
         # [batch, horizon, output_size]
-        _, (h_n, c_n) = self.forecaster_rnn(x.float())
+        _, (h_n, c_n) = self.forecaster_rnn(x.float(), state)
         out = self.forecaster_out(h_n).reshape(-1, self.horizon,
                                                self.output_size)
 
-        return out
+        return out, (h_n, c_n)
 
     def train_forecaster(self, train_loader, epochs, lr):
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
@@ -77,7 +77,7 @@ class ConformalForecaster(torch.nn.Module):
             for sequences, targets, lengths in train_loader:
                 optimizer.zero_grad()
 
-                out = self(sequences)
+                out, _ = self(sequences)
 
                 lengths_mask = torch.zeros(sequences.size(0), self.horizon,
                                            sequences.size(2))
@@ -108,7 +108,7 @@ class ConformalForecaster(torch.nn.Module):
         with torch.set_grad_enabled(False):
             self.eval()
             for sequences, targets, lengths in calibration_loader:
-                out = self(sequences)
+                out, _ = self(sequences)
                 # n_batches: [batch_size, horizon, output_size]
                 calibration_scores.append(nonconformity(out, targets))
 
@@ -154,10 +154,10 @@ class ConformalForecaster(torch.nn.Module):
         # Collect calibration scores
         self.calibrate(calibration_dataset, n_train=len(train_dataset))
 
-    def predict(self, x, coverage_mode='joint'):
+    def predict(self, x, state=None, coverage_mode='joint'):
         """Forecasts the time series with conformal uncertainty intervals."""
         # TODO +/- nonconformity will not return *adaptive* interval widths.
-        out = self(x)
+        out, hidden = self(x, state)
 
         if coverage_mode == 'independent':
             # [batch_size, horizon, n_outputs]
@@ -169,7 +169,7 @@ class ConformalForecaster(torch.nn.Module):
             upper = out + self.corrected_critical_calibration_scores
 
         # [batch_size, 2, horizon, n_outputs]
-        return torch.stack((lower, upper), dim=1)
+        return torch.stack((lower, upper), dim=1), hidden
 
     def evaluate_coverage(self, test_dataset, coverage_mode='joint'):
         self.eval()
@@ -178,7 +178,7 @@ class ConformalForecaster(torch.nn.Module):
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
 
         for sequences, targets, lengths in test_loader:
-            batch_intervals = self.predict(sequences)
+            batch_intervals, _ = self.predict(sequences)
             intervals.append(batch_intervals)
             coverages.append(coverage(batch_intervals, targets,
                                       coverage_mode=coverage_mode))
