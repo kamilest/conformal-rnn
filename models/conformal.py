@@ -58,29 +58,7 @@ class ConformalForecaster(torch.nn.Module):
         self.critical_calibration_scores = None
         self.corrected_critical_calibration_scores = None
 
-    def forward(self, x, len_x):
-        # sorted_len, idx = len_x.sort(dim=0, descending=True)
-        # sorted_x = x[idx]
-        #
-        # # Convert to packed sequence batch
-        # packed_x = torch.nn.utils.rnn.pack_padded_sequence(sorted_x,
-        #                                                    lengths=sorted_len,
-        #                                                    batch_first=True)
-        #
-        # # [batch, seq_len, embedding_size]
-        # packed_h, (h_n, c_n) = self.forecaster_rnn(packed_x.float())
-        #
-        # max_seq_len = x.size(1)
-        # padded_out, _ = torch.nn.utils.rnn.pad_packed_sequence(packed_h,
-        #                                                        batch_first=True,
-        #                                                        total_length=max_seq_len)
-        #
-        # _, reverse_idx = idx.sort(dim=0, descending=False)
-        #
-        # # [batch, seq_len, embedding]
-        # padded_out = padded_out[reverse_idx]
-        # out = self.forecaster_out(padded_out[:, -self.horizon:, :])
-
+    def forward(self, x):
         # [batch, horizon, output_size]
         _, (h_n, c_n) = self.forecaster_rnn(x.float())
         out = self.forecaster_out(h_n).reshape(-1, self.horizon,
@@ -99,7 +77,7 @@ class ConformalForecaster(torch.nn.Module):
             for sequences, targets, lengths in train_loader:
                 optimizer.zero_grad()
 
-                out = self(sequences, lengths)
+                out = self(sequences)
 
                 lengths_mask = torch.zeros(sequences.size(0), self.horizon,
                                            sequences.size(2))
@@ -130,7 +108,7 @@ class ConformalForecaster(torch.nn.Module):
         with torch.set_grad_enabled(False):
             self.eval()
             for sequences, targets, lengths in calibration_loader:
-                out = self(sequences, lengths)
+                out = self(sequences)
                 # n_batches: [batch_size, horizon, output_size]
                 calibration_scores.append(nonconformity(out, targets))
 
@@ -176,10 +154,10 @@ class ConformalForecaster(torch.nn.Module):
         # Collect calibration scores
         self.calibrate(calibration_dataset, n_train=len(train_dataset))
 
-    def predict(self, x, len_x, coverage_mode='joint'):
+    def predict(self, x, coverage_mode='joint'):
         """Forecasts the time series with conformal uncertainty intervals."""
         # TODO +/- nonconformity will not return *adaptive* interval widths.
-        out = self(x, len_x)
+        out = self(x)
 
         if coverage_mode == 'independent':
             # [batch_size, horizon, n_outputs]
@@ -200,7 +178,7 @@ class ConformalForecaster(torch.nn.Module):
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
 
         for sequences, targets, lengths in test_loader:
-            batch_intervals = self.predict(sequences, lengths)
+            batch_intervals = self.predict(sequences)
             intervals.append(batch_intervals)
             coverages.append(coverage(batch_intervals, targets,
                                       coverage_mode=coverage_mode))
