@@ -125,7 +125,6 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         # information and should be excluded.
         # assert np.min(sequence_lengths) > horizon
 
-    # TODO clean up (un)squeezing.
     # X: [n_samples, max_seq_len, n_features]
     X_tensor = torch.nn.utils.rnn.pad_sequence(X, batch_first=True).float()
 
