@@ -14,14 +14,13 @@ def autoregressive(X_gen, w):
 
 
 # https://www.statsmodels.org/devel/examples/notebooks/generated/statespace_seasonal.html
-def seasonal(duration, periodicity, harmonics=None):
-    noise_std = 1.
+def seasonal(duration, periodicity, amplitude=1., harmonics=None):
     harmonics = harmonics if harmonics else int(np.floor(periodicity / 2))
 
     lambda_p = 2 * np.pi / float(periodicity)
 
-    gamma_jt = noise_std * np.random.randn(harmonics)
-    gamma_star_jt = noise_std * np.random.randn(harmonics)
+    gamma_jt = amplitude * np.random.randn(harmonics)
+    gamma_star_jt = amplitude * np.random.randn(harmonics)
 
     total_timesteps = 2 * duration  # Pad for burn in
     series = np.zeros(total_timesteps)
@@ -33,10 +32,10 @@ def seasonal(duration, periodicity, harmonics=None):
             sin_j = np.sin(lambda_p * j)
             gamma_jtp1[j - 1] = (gamma_jt[j - 1] * cos_j
                                  + gamma_star_jt[j - 1] * sin_j
-                                 + noise_std * np.random.randn())
+                                 + amplitude * np.random.randn())
             gamma_star_jtp1[j - 1] = (- gamma_jt[j - 1] * sin_j
                                       + gamma_star_jt[j - 1] * cos_j
-                                      + noise_std * np.random.randn())
+                                      + amplitude * np.random.randn())
         series[t] = np.sum(gamma_jtp1)
         gamma_jt = gamma_jtp1
         gamma_star_jt = gamma_star_jtp1
@@ -106,6 +105,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              noise_profile=[0.2, 0.4, 0.6,
                                                             0.8, 1.],
                                              periodicity=None,
+                                             amplitude=None,
                                              horizon=10):
     # TODO replace total_seq_len with sampled sequence lengths.
     sequence_lengths = np.array([seq_len + horizon] * n_samples)
@@ -136,7 +136,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
              nv in noise_vars]
 
     if periodicity is not None:
-        periodic = [seasonal(sl, periodicity) for sl in sequence_lengths]
+        periodic = [seasonal(sl, periodicity, amplitude) for sl in sequence_lengths]
     else:
         periodic = [[0] * sl for sl in sequence_lengths]
 
