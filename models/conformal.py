@@ -47,9 +47,11 @@ class ConformalForecaster(torch.nn.Module):
         self.forecaster_rnn = torch.nn.LSTM(input_size=input_size,
                                             hidden_size=embedding_size,
                                             batch_first=True)
-        self.forecaster_out = torch.nn.Linear(embedding_size, output_size)
+        self.forecaster_out = torch.nn.Linear(embedding_size,
+                                              horizon * output_size)
 
         self.horizon = horizon
+        self.output_size = output_size
         self.alpha = error_rate
 
         self.calibration_scores = None
@@ -57,33 +59,32 @@ class ConformalForecaster(torch.nn.Module):
         self.corrected_critical_calibration_scores = None
 
     def forward(self, x, len_x):
-        sorted_len, idx = len_x.sort(dim=0, descending=True)
-        sorted_x = x[idx]
-
-        # Convert to packed sequence batch
-        packed_x = torch.nn.utils.rnn.pack_padded_sequence(sorted_x,
-                                                           lengths=sorted_len,
-                                                           batch_first=True)
-
-        # [batch, seq_len, embedding_size]
-        packed_h, _ = self.forecaster_rnn(packed_x.float())
-
-        max_seq_len = x.size(1)
-        padded_out, _ = torch.nn.utils.rnn.pad_packed_sequence(packed_h,
-                                                               batch_first=True,
-                                                               total_length=max_seq_len)
-
-        _, reverse_idx = idx.sort(dim=0, descending=False)
-        padded_out = padded_out[reverse_idx]
+        # sorted_len, idx = len_x.sort(dim=0, descending=True)
+        # sorted_x = x[idx]
+        #
+        # # Convert to packed sequence batch
+        # packed_x = torch.nn.utils.rnn.pack_padded_sequence(sorted_x,
+        #                                                    lengths=sorted_len,
+        #                                                    batch_first=True)
+        #
+        # # [batch, seq_len, embedding_size]
+        # packed_h, (h_n, c_n) = self.forecaster_rnn(packed_x.float())
+        #
+        # max_seq_len = x.size(1)
+        # padded_out, _ = torch.nn.utils.rnn.pad_packed_sequence(packed_h,
+        #                                                        batch_first=True,
+        #                                                        total_length=max_seq_len)
+        #
+        # _, reverse_idx = idx.sort(dim=0, descending=False)
+        #
+        # # [batch, seq_len, embedding]
+        # padded_out = padded_out[reverse_idx]
+        # out = self.forecaster_out(padded_out[:, -self.horizon:, :])
 
         # [batch, horizon, output_size]
-        out = self.forecaster_out(padded_out[:, -self.horizon:, :])
-
-        lengths_mask = torch.zeros(x.size(0), self.horizon, x.size(2))
-        for i, l in enumerate(len_x):
-            lengths_mask[i, :min(l, self.horizon), :] = 1
-
-        out = lengths_mask * out
+        _, (h_n, c_n) = self.forecaster_rnn(x.float())
+        out = self.forecaster_out(h_n).reshape(-1, self.horizon,
+                                               self.output_size)
 
         return out
 
