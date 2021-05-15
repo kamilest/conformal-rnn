@@ -13,6 +13,37 @@ def autoregressive(X_gen, w):
          range(len(X_gen))])
 
 
+# https://www.statsmodels.org/devel/examples/notebooks/generated/statespace_seasonal.html
+def seasonal(duration, periodicity, harmonics=None):
+    noise_std = 1.
+    harmonics = harmonics if harmonics else int(np.floor(periodicity / 2))
+
+    lambda_p = 2 * np.pi / float(periodicity)
+
+    gamma_jt = noise_std * np.random.randn(harmonics)
+    gamma_star_jt = noise_std * np.random.randn(harmonics)
+
+    total_timesteps = 2 * duration  # Pad for burn in
+    series = np.zeros(total_timesteps)
+    for t in range(total_timesteps):
+        gamma_jtp1 = np.zeros_like(gamma_jt)
+        gamma_star_jtp1 = np.zeros_like(gamma_star_jt)
+        for j in range(1, harmonics + 1):
+            cos_j = np.cos(lambda_p * j)
+            sin_j = np.sin(lambda_p * j)
+            gamma_jtp1[j - 1] = (gamma_jt[j - 1] * cos_j
+                                 + gamma_star_jt[j - 1] * sin_j
+                                 + noise_std * np.random.randn())
+            gamma_star_jtp1[j - 1] = (- gamma_jt[j - 1] * sin_j
+                                      + gamma_star_jt[j - 1] * cos_j
+                                      + noise_std * np.random.randn())
+        series[t] = np.sum(gamma_jtp1)
+        gamma_jt = gamma_jtp1
+        gamma_star_jt = gamma_star_jtp1
+
+    return series[-duration:].reshape(-1, 1)  # Discard burn in
+
+
 def create_autoregressive_data(n_samples=100,
                                seq_len=6,
                                n_features=1,
@@ -74,8 +105,8 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              noise_mode='time-dependent',
                                              noise_profile=[0.2, 0.4, 0.6,
                                                             0.8, 1.],
+                                             periodicity=None,
                                              horizon=10):
-
     # TODO replace total_seq_len with sampled sequence lengths.
     sequence_lengths = np.array([seq_len + horizon] * n_samples)
 
@@ -88,7 +119,6 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
 
     if noise_mode == 'time-dependent':
         # Default increasing noise profile.
-        # TODO sampling frequencies
         # TODO stationarity
         noise_vars = [[noise_profile[s // (sl // len(noise_profile))]
                       for s in range(sl)] for sl in sequence_lengths]
@@ -100,16 +130,17 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         # No additional noise beyond the variance of X_gen
         noise_vars = [[0] * sl for sl in sequence_lengths]
 
-    # if frequency is not None:
-    #     frequencies = []
-    # else:
-    #     frequencies = []
-
     # X_full stores the time series values generated from features X_gen.
     ar = [autoregressive(x, w).reshape(-1, n_features) for x in X_gen]
     noise = [np.random.normal(0., nv).reshape(-1, n_features) for
              nv in noise_vars]
-    X_full = [torch.tensor(i + j) for i, j in zip(ar, noise)]
+
+    if periodicity is not None:
+        periodic = [seasonal(sl, periodicity) for sl in sequence_lengths]
+    else:
+        periodic = [[0] * sl for sl in sequence_lengths]
+
+    X_full = [torch.tensor(i + j + k) for i, j, k in zip(ar, noise, periodic)]
 
     # Splitting time series into training sequence X and target sequence Y;
     # Y stores the time series predicted targets `horizon` steps away
