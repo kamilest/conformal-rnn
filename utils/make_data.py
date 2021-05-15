@@ -102,13 +102,16 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              X_variance=2,
                                              memory_factor=0.9,
                                              noise_mode='time-dependent',
-                                             noise_profile=[0.2, 0.4, 0.6,
-                                                            0.8, 1.],
+                                             noise_profile=None,
                                              periodicity=None,
                                              amplitude=1,
                                              harmonics=1,
                                              horizon=10):
     # TODO replace total_seq_len with sampled sequence lengths.
+
+    if noise_profile is None:
+        noise_profile = [0.2, 0.4, 0.6, 0.8, 1.]
+
     sequence_lengths = np.array([seq_len + horizon] * n_samples)
 
     # Create the input features of the generating process
