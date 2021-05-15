@@ -105,7 +105,8 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              noise_profile=[0.2, 0.4, 0.6,
                                                             0.8, 1.],
                                              periodicity=None,
-                                             amplitude=None,
+                                             amplitude=1,
+                                             harmonics=1,
                                              horizon=10):
     # TODO replace total_seq_len with sampled sequence lengths.
     sequence_lengths = np.array([seq_len + horizon] * n_samples)
@@ -136,7 +137,8 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
              nv in noise_vars]
 
     if periodicity is not None:
-        periodic = [seasonal(sl, periodicity, amplitude) for sl in sequence_lengths]
+        periodic = [seasonal(sl, periodicity, amplitude, harmonics) for sl in
+                    sequence_lengths]
     else:
         periodic = [[0] * sl for sl in sequence_lengths]
 
