@@ -101,7 +101,13 @@ class ConformalForecaster(torch.nn.Module):
 
                 out = self(sequences, lengths)
 
-                loss = criterion(out, targets)
+                lengths_mask = torch.zeros(sequences.size(0), self.horizon,
+                                           sequences.size(2))
+                for i, l in enumerate(lengths):
+                    lengths_mask[i, :min(l, self.horizon), :] = 1
+                valid_out = lengths_mask * out
+
+                loss = criterion(valid_out, targets)
                 loss.backward()
 
                 train_loss += loss.item()
