@@ -71,51 +71,44 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              X_mean=1,
                                              X_variance=2,
                                              memory_factor=0.9,
-                                             mode='time-dependent',
-                                             noise_profile='increasing',
+                                             noise_mode='time-dependent',
+                                             noise_profile=[0.2, 0.4, 0.6,
+                                                            0.8, 1.],
                                              horizon=10):
 
     # TODO replace total_seq_len with sampled sequence lengths.
     sequence_lengths = np.array([seq_len + horizon] * n_samples)
-    max_seq_len = np.max(sequence_lengths)
 
     # Create the input features of the generating process
     X_gen = [np.random.normal(X_mean, X_variance, (seq_len,
                                                    n_features))
              for seq_len in sequence_lengths]
 
-    w = np.array([memory_factor ** k for k in range(max_seq_len)])
+    w = np.array([memory_factor ** k for k in range(np.max(sequence_lengths))])
 
-    if noise_profile == 'increasing':
+    if noise_mode == 'time-dependent':
         # Default increasing noise profile.
         # TODO sampling frequencies
         # TODO stationarity
-        noise_profiles = [
-            [1 / (seq_len - 1) * k for k in range(max(1, seq_len))] for seq_len
-            in sequence_lengths]
-    elif noise_profile == 'constant':
-        noise_profiles = [[1 for _ in range(max(1, seq_len))]
-                          for seq_len in sequence_lengths]
+        noise_vars = [[noise_profile[s // sl] for s in range(sl)]
+                      for sl in sequence_lengths]
+    elif noise_mode == 'noise-sweep':
+        noise_vars = [[noise_profile[s // len(sequence_lengths)]] *
+                      sequence_lengths[s] for s in range(len(sequence_lengths))]
     else:
         # No additional noise beyond the variance of X_gen
-        noise_profiles = [[0 for _ in range(max(1, seq_len))]
-                          for seq_len in sequence_lengths]
+        noise_vars = [[0] * sl for sl in sequence_lengths]
 
-    # if mode == "noise-sweep":
-    #     X = [[(autoregressive(X_gen[k], w).reshape(sequence_lengths[k],
-    #                                                n_features) +
-    #            np.random.normal(0, noise_profile[u], (sequence_lengths[k],
-    #                                                   n_features)))
-    #               .reshape(sequence_lengths[k], ) for k in range(n_samples)]
-    #          for u in range(len(noise_profile))]
+    # if frequency is not None:
+    #     frequencies = []
+    # else:
+    #     frequencies = []
 
     # X_full stores the time series values generated from features X_gen.
-    X_full = []
-    if mode == "time-dependent":
-        ar = [autoregressive(x, w).reshape(-1, n_features) for x in X_gen]
-        noise = [np.random.normal(0., noise_profile).reshape(-1, n_features) for
-                 noise_profile in noise_profiles]
-        X_full = [torch.tensor(i + j) for i, j in zip(ar, noise)]
+    ar = [autoregressive(x, w).reshape(-1, n_features) for x in X_gen]
+    noise = [np.random.normal(0., nv).reshape(-1, n_features) for
+             nv in noise_vars]
+    X_full = [torch.tensor(i + j) for i, j in zip(ar, noise)]
 
     # Splitting time series into training sequence X and target sequence Y;
     # Y stores the time series predicted targets `horizon` steps away
