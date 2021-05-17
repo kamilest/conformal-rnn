@@ -131,12 +131,12 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
     if noise_mode == 'time-dependent':
         # Default increasing noise profile.
         # TODO stationarity
-        noise_vars = [[noise_profile[s // (sl // len(noise_profile))]
-                      for s in range(sl)] for sl in sequence_lengths]
+        noise_vars = [[noise_profile[(s * len(noise_profile)) // sl]
+                       for s in range(sl)] for sl in sequence_lengths]
     elif noise_mode == 'noise-sweep':
-        noise_vars = [[noise_profile[s // (
-                len(sequence_lengths) // len(noise_profile))]] *
-                      sequence_lengths[s] for s in range(len(sequence_lengths))]
+        noise_vars = [
+            [noise_profile[(s * len(noise_profile)) // len(sequence_lengths)]] *
+            sequence_lengths[s] for s in range(len(sequence_lengths))]
     else:
         # No additional noise beyond the variance of X_gen
         noise_vars = [[0] * sl for sl in sequence_lengths]
