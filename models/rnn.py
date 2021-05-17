@@ -70,15 +70,15 @@ class RNN(nn.Module):
             r_out, h_n = self.rnn(x, None)
 
         # choose r_out at the last time step
-        out = self.out(r_out)
+        out = self.out(h_n)
 
         return out
 
     def fit(self, X, Y):
         X_padded, _ = padd_arrays(X, max_length=self.MAX_STEPS)
         Y_padded, loss_masks = np.squeeze(
-            padd_arrays(Y, max_length=self.MAX_STEPS)[0], axis=2), np.squeeze(
-            padd_arrays(Y, max_length=self.MAX_STEPS)[1], axis=2)
+            padd_arrays(Y, max_length=self.OUTPUT_SIZE)[0], axis=2), np.squeeze(
+            padd_arrays(Y, max_length=self.OUTPUT_SIZE)[1], axis=2)
 
         X = torch.FloatTensor(X_padded)
         Y = torch.FloatTensor(Y_padded)
@@ -105,7 +105,7 @@ class RNN(nn.Module):
                 y = torch.tensor(Y[batch_indexes]).detach()
                 msk = torch.tensor(loss_masks[batch_indexes]).detach()
 
-                output = self(x).reshape(-1, self.MAX_STEPS)  # rnn output
+                output = self(x).reshape(-1, self.OUTPUT_SIZE)  # rnn output
 
                 self.loss = self.loss_fn(output, y, msk)  # MSE loss
 
@@ -114,7 +114,8 @@ class RNN(nn.Module):
                     retain_graph=True)  # backpropagation, compute gradients
                 optimizer.step()  # apply gradients
 
-            print('Epoch: ', epoch, '| train loss: %.4f' % self.loss.data)
+            if epoch % 50 == 0:
+                print('Epoch: ', epoch, '| train loss: %.4f' % self.loss.data)
 
 
     def predict(self, X, padd=False):
@@ -125,7 +126,7 @@ class RNN(nn.Module):
 
         X_test = Variable(torch.tensor(X_), volatile=True).type(
             torch.FloatTensor)
-        predicts_ = self(X_test).view(-1, self.MAX_STEPS)
+        predicts_ = self(X_test).view(-1, self.OUTPUT_SIZE)
 
         if padd:
             prediction = unpadd_arrays(predicts_.detach().numpy(), masks)
