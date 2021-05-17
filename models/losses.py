@@ -24,11 +24,13 @@ def model_loss_single(output, target, masks):
 
 def single_losses(model):
     return model.masks * (
-            model(model.X).view(-1, model.MAX_STEPS) - model.y) ** 2
+            model(model.X).view(-1, model.OUTPUT_SIZE) - model.y) ** 2
 
 
 def model_loss(output, target, masks):
-    single_loss = masks * (output - target) ** 2
+    single_loss = torch.nn.functional.mse_loss(output, target,
+                                                       reduction='none')
+    single_loss = masks * single_loss
     loss = torch.sum(
         torch.sum(single_loss, dim=1) / torch.sum(torch.sum(masks, dim=1)))
 
