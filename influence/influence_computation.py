@@ -125,7 +125,7 @@ def exact_influence(model, train_index, damp=0, W=None, order=1):
     
     if W is None:
 
-        y_preds = [model.predict(model.X[k, :], numpy_output=False) for k in train_index]
+        y_preds = [model.predict(model.X[k, :]) for k in train_index]
 
         if hasattr(model, 'masks'):
 
