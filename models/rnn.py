@@ -70,7 +70,7 @@ class RNN(nn.Module):
             r_out, h_n = self.rnn(x, None)
 
         # choose r_out at the last time step
-        out = self.out(r_out[:, :, :])
+        out = self.out(r_out)
 
         return out
 
@@ -80,12 +80,9 @@ class RNN(nn.Module):
             padd_arrays(Y, max_length=self.MAX_STEPS)[0], axis=2), np.squeeze(
             padd_arrays(Y, max_length=self.MAX_STEPS)[1], axis=2)
 
-        X = Variable(torch.tensor(X_padded), volatile=True).type(
-            torch.FloatTensor)
-        Y = Variable(torch.tensor(Y_padded), volatile=True).type(
-            torch.FloatTensor)
-        loss_masks = Variable(torch.tensor(loss_masks), volatile=True).type(
-            torch.FloatTensor)
+        X = torch.FloatTensor(X_padded)
+        Y = torch.FloatTensor(Y_padded)
+        loss_masks = torch.FloatTensor(loss_masks)
 
         self.X = X
         self.y = Y
@@ -102,28 +99,23 @@ class RNN(nn.Module):
                                                  size=self.BATCH_SIZE,
                                                  replace=True, p=None)
 
-                x = torch.tensor(X[batch_indexes, :, :])
-                y = torch.tensor(Y[batch_indexes])
-                msk = torch.tensor(loss_masks[batch_indexes])
+                # reshape x to (batch, time_step, input_size)
+                x = torch.tensor(X[batch_indexes, :, :]).reshape(-1, self.MAX_STEPS,
+                                                                 self.INPUT_SIZE).detach()
+                y = torch.tensor(Y[batch_indexes]).detach()
+                msk = torch.tensor(loss_masks[batch_indexes]).detach()
 
-                b_x = Variable(x.view(-1, self.MAX_STEPS,
-                                      self.INPUT_SIZE))  # reshape x to (
-                # batch, time_step, input_size)
-                b_y = Variable(y)  # batch y
-                b_m = Variable(msk)
+                output = self(x).reshape(-1, self.MAX_STEPS)  # rnn output
 
-                output = self(b_x).view(-1, self.MAX_STEPS)  # rnn output
-
-                self.loss = self.loss_fn(output, b_y, b_m)  # MSE loss
+                self.loss = self.loss_fn(output, y, msk)  # MSE loss
 
                 optimizer.zero_grad()  # clear gradients for this training step
                 self.loss.backward(
                     retain_graph=True)  # backpropagation, compute gradients
                 optimizer.step()  # apply gradients
 
-                if step % 50 == 0:
-                    print('Epoch: ', epoch,
-                          '| train loss: %.4f' % self.loss.data)
+            print('Epoch: ', epoch, '| train loss: %.4f' % self.loss.data)
+
 
     def predict(self, X, padd=False):
         if type(X) is list:
