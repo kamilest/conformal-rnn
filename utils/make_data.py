@@ -106,13 +106,20 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              periodicity=None,
                                              amplitude=1,
                                              harmonics=1,
+                                             dynamic_sequence_lengths=False,
                                              horizon=10):
     # TODO replace total_seq_len with sampled sequence lengths.
+
+    seq_len = max(seq_len, horizon)
 
     if noise_profile is None:
         noise_profile = [0.2, 0.4, 0.6, 0.8, 1.]
 
-    sequence_lengths = np.array([seq_len + horizon] * n_samples)
+    if dynamic_sequence_lengths:
+        sequence_lengths = horizon + seq_len // 2 \
+                           + np.random.geometric(p=2 / seq_len, size=n_samples)
+    else:
+        sequence_lengths = np.array([seq_len + horizon] * n_samples)
 
     # Create the input features of the generating process
     X_gen = [np.random.normal(X_mean, X_variance, (seq_len,
