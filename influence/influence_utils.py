@@ -6,10 +6,6 @@
 # computation in Pytorch
 # ---------------------------------------------------------
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
 import copy
 
@@ -51,7 +47,7 @@ def exact_hessian(model):
                                           retain_graph=True)
         temp.append(stack_torch_tensors(second_grad))
 
-    Hessian = torch.cat(temp, axis=1)
+    Hessian = torch.cat(temp, dim=1)
     return Hessian
 
 
@@ -66,7 +62,7 @@ def exact_hessian_ij(model, loss_ij):
         second_grad = torch.autograd.grad(grad_params[u], model.parameters(),
                                           retain_graph=True)
         temp.append(stack_torch_tensors(second_grad))
-    Hessian = torch.cat(temp, axis=1)
+    Hessian = torch.cat(temp, dim=1)
 
     return Hessian
 
