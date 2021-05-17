@@ -107,8 +107,8 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              amplitude=1,
                                              harmonics=1,
                                              dynamic_sequence_lengths=False,
-                                             horizon=10):
-    # TODO replace total_seq_len with sampled sequence lengths.
+                                             horizon=10,
+                                             return_raw=False):
 
     seq_len = max(seq_len, horizon)
 
@@ -169,6 +169,9 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         # Examples with sequence lenghts <=`horizon` don't give any
         # information and are excluded.
         # assert np.min(sequence_lengths) > horizon
+
+    if return_raw:
+        return X, Y
 
     # X: [n_samples, max_seq_len, n_features]
     X_tensor = torch.nn.utils.rnn.pad_sequence(X, batch_first=True).float()
