@@ -10,7 +10,6 @@ import collections
 import copy
 
 import numpy as np
-
 import torch
 
 
@@ -39,7 +38,6 @@ def exact_hessian(model):
     grad_params = torch.autograd.grad(model.loss, model.parameters(),
                                       retain_graph=True, create_graph=True)
     grad_params = stack_torch_tensors(grad_params)
-    hess_params = torch.zeros((len(grad_params), len(grad_params)))
     temp = []
 
     for u in range(len(grad_params)):
@@ -55,7 +53,6 @@ def exact_hessian_ij(model, loss_ij):
     grad_params = torch.autograd.grad(loss_ij, model.parameters(),
                                       retain_graph=True, create_graph=True)
     grad_params = stack_torch_tensors(grad_params)
-    hess_params = torch.zeros((len(grad_params), len(grad_params)))
     temp = []
 
     for u in range(len(grad_params)):
@@ -122,7 +119,6 @@ def perturb_model_(model, perturb):
     """
 
     params = []
-    NUM_SAMPLES = model.X.shape[0]
 
     for param in model.parameters():
         params.append(param.clone())
@@ -151,9 +147,6 @@ def perturb_model_(model, perturb):
 
     perturbed_model.__dict__.update(new_model_dict)
     perturbed_model.load_state_dict(new_model_state)
-
-    # perturbed_model.__dict__.update(model.__dict__)
-    # perturbed_model.load_state_dict(model.state_dict())  # copy weights and stuff
 
     index = 0
 
