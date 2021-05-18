@@ -150,7 +150,8 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         periodic = [seasonal(sl, periodicity, amplitude, harmonics) for sl in
                     sequence_lengths]
     else:
-        periodic = [[0] * sl for sl in sequence_lengths]
+        periodic = np.array([np.zeros(sl) for sl in sequence_lengths])\
+            .reshape(-1, 1)
 
     X_full = [torch.tensor(i + j + k) for i, j, k in zip(ar, noise, periodic)]
 
