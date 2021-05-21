@@ -10,6 +10,7 @@ from models.qrnn import QRNN
 
 from utils.performance import evaluate_performance
 
+
 def get_windows(X, length, stride, horizon, return_tensors=False):
     n_seq = (len(X) - length - horizon) // stride
     X_ = [X[i * stride:i * stride + length] for i in range(n_seq)]
@@ -194,7 +195,8 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
                   'batch_size': 100,
                   'embedding_size': 20,
                   'coverage': 0.9,
-                  'lr': 0.01}
+                  'lr': 0.01,
+                  'n_steps': 500}
 
     baseline_results = dict({"CoRNN": dict({'energy': None, 'stock': None,
                                             'hungary': None}),
@@ -204,6 +206,19 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
                                             'hungary': None})})
 
     for dataset in datasets:
+        if dataset == 'energy':
+            max_steps = 600
+            output_size = horizon = 120
+        elif dataset == 'stock':
+            max_steps = 30
+            output_size = horizon = 10
+        else:
+            max_steps = 8
+            output_size = horizon = 4
+
+        params['max_steps'] = max_steps
+        params['output_size'] = output_size
+
         for baseline in baselines:
             calibrated = 'calibrated' if baseline == 'CoRNN' else 'raw'
             name = '{}_{}_default'.format(dataset, calibrated)
@@ -222,7 +237,7 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
                 if baseline == 'CoRNN':
                     model = ConformalForecaster(
                         embedding_size=params['embedding_size'],
-                        horizon=params['horizon'],
+                        horizon=horizon,
                         error_rate=1 - params['coverage'])
                     model.fit(train_dataset, calibration_dataset,
                               epochs=params['epochs'], lr=params['lr'],
@@ -239,13 +254,12 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
                                'interval_widths': interval_widths}
 
                 else:
-                    # TODO fix parameters
                     model = models[baseline](**params)
-
-                    # TODO train DPRNN/QRNN
+                    model.fit(train_dataset[0], train_dataset[1])
                     results = evaluate_performance(model, test_dataset[0],
                                                    test_dataset[1],
-                                                   coverage=params['coverage'])
+                                                   coverage=params['coverage'],
+                                                   error_threshold="Auto")
 
                 with open('saved_results/{}_{}.pkl'.format(baseline, dataset),
                           'wb') as f:
