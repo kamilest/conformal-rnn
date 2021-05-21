@@ -4,6 +4,10 @@ import numpy as np
 import pandas as pd
 import torch
 
+from models.conformal import ConformalForecaster
+from models.dprnn import DPRNN
+from models.qrnn import QRNN
+
 
 def get_windows(X, length, stride, horizon, return_tensors=False):
     n_seq = (len(X) - length - horizon) // stride
@@ -174,72 +178,64 @@ def prepare_uci_datasets():
                 pickle.dump(test, f,
                             protocol=pickle.HIGHEST_PROTOCOL)
 
-# def run_uci_experiments(retrain=False):
-#     baselines = ["CoRNN", "QRNN", "DPRNN"]
-#     exp_res_dict = dict({"CoRNN": [], "QRNN": [], "DPRNN": []})
-#
-#     baseline_results = dict({"CoRNN": dict({"CI_length": None,
-#                                             "Errors": None,
-#                                             "Coverages": None,
-#                                             "Intervals": None}),
-#                              "QRNN": dict({"CI_length": None,
-#                                            "Errors": None,
-#                                            "Coverages": None,
-#                                            "Intervals": None}),
-#                              "DPRNN": dict({"CI_length": None,
-#                                             "Errors": None,
-#                                             "Coverages": None,
-#                                             "Intervals": None})})
-#
-#     if retrain:
-#
-#         for n_sample_ in n_samples_:
-#             exp_results = collect_synthetic_results(noise_var_, params,
-#                                                     coverage=coverage,
-#                                                     seq_len=seq_len,
-#                                                     n_train_seq=n_train_seq,
-#                                                     n_test_seq=n_test_seq)
-#
-#             exp_res_dict["BJRNN"].append(exp_results["BJRNN"])
-#             exp_res_dict["QRNN"].append(exp_results["QRNN"])
-#             exp_res_dict["DPRNN"].append(exp_results["DPRNN"])
-#     else:
-#
-#         infile = open('saved_models/Experiment_2_result', 'rb')
-#         exp_res_dict = pickle.load(infile)
-#
-#     elif exp_mode == "1":
-#
-#     noise_vars = [0.1 * k for k in range(9)]
-#
-#     if retrain:
-#
-#         for noise_var in noise_vars:
-#             exp_results = collect_synthetic_results(noise_var, params,
-#                                                     coverage=coverage,
-#                                                     seq_len=seq_len,
-#                                                     n_train_seq=n_samples,
-#                                                     n_test_seq=n_test)
-#
-#             exp_res_dict["BJRNN"].append(exp_results["BJRNN"])
-#             exp_res_dict["QRNN"].append(exp_results["QRNN"])
-#             exp_res_dict["DPRNN"].append(exp_results["DPRNN"])
-#
-#     else:
-#
-#         infile = open('saved_models/Experiment_1_result', 'rb')
-#         exp_res_dict = pickle.load(infile)
-#
-#
-# for baseline in baselines:
-#     baseline_results[baseline]["CI_length"] = [
-#         exp_res_dict[baseline][k][0]["CI length"] for k in
-#         range(len(exp_res_dict[baseline]))]
-#     baseline_results[baseline]["Errors"] = [
-#         np.mean(np.concatenate(exp_res_dict[baseline][k][0]["Errors"])) for
-#         k in range(len(exp_res_dict[baseline]))]
-#     baseline_results[baseline]["Coverages"] = BJRNN_coverages = [
-#         exp_res_dict[baseline][k][0]["Coverage"] for k in
-#         range(len(exp_res_dict[baseline]))]
-#
-# return baseline_results
+
+def run_uci_experiments(params=None, baselines=None, datasets=None,
+                        retrain=False):
+    if datasets is None:
+        datasets = ['energy', 'stock', 'hungary']
+
+    if baselines is None:
+        baselines = ["CoRNN", "QRNN", "DPRNN"]
+    models = {"CoRNN": ConformalForecaster, "DPRNN": DPRNN, "QRNN": QRNN}
+
+    if params is None:
+        params = {'epochs': 4000,
+                  'batch_size': 100,
+                  'embedding_size': 20,
+                  'coverage': 0.9,
+                  'lr': 0.01}
+
+    baseline_results = dict({"CoRNN": dict({'energy': None, 'stock': None,
+                                            'hungary': None}),
+                             "QRNN": dict({'energy': None, 'stock': None,
+                                           'hungary': None}),
+                             "DPRNN": dict({'energy': None, 'stock': None,
+                                            'hungary': None})})
+
+    for dataset in datasets:
+        for baseline in baselines:
+            calibrated = 'calibrated' if baseline == 'CoRNN' else 'raw'
+            name = '{}_{}_default'.format(dataset, calibrated)
+
+            with open('data/{}_train.pkl'.format(name), 'rb') as f:
+                train_dataset = pickle.load(f)
+            if baseline == 'CoRNN':
+                with open('data/{}_calibrate.pkl'.format(name), 'rb') as f:
+                    cal_dataset = pickle.load(f)
+            else:
+                cal_dataset = None
+            with open('data/{}_test.pkl'.format(name), 'rb') as f:
+                test_dataset = pickle.load(f)
+
+            if retrain:
+                pass
+                # TODO train baseline
+            else:
+                pass
+                # TODO load trained model
+
+            coverages, intervals = None  # TODO compute this on test dataset
+            #     coverages, intervals = model.evaluate_coverage(test_dataset)
+            #     mean_coverage = torch.mean(coverages.float(), dim=0).item()
+            #     interval_widths = (intervals[:, 1] - intervals[:, 0]).squeeze().mean(
+            #         dim=0).tolist()
+            mean_coverage = None
+            interval_widths = None
+            results = {'coverages': coverages,
+                       'intervals': intervals,
+                       'mean_coverage': mean_coverage,
+                       'interval_widths': interval_widths}
+
+            baseline_results[baseline][dataset] = results
+
+    return baseline_results
