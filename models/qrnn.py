@@ -43,7 +43,7 @@ class QRNN(nn.Module):
                     }
 
         self.rnn = rnn_dict[self.mode]
-        self.out = nn.Linear(self.HIDDEN_UNITS, 2)
+        self.out = nn.Linear(self.HIDDEN_UNITS, 2 * self.OUTPUT_SIZE)
 
     def forward(self, x):
         # x shape (batch, time_step, input_size)
@@ -52,14 +52,13 @@ class QRNN(nn.Module):
         # h_c shape (n_layers, batch, hidden_size)
 
         if self.mode == "LSTM":
-            r_out, (h_n, h_c) = self.rnn(x,
-                                         None)  # None represents zero
+            r_out, (h_n, h_c) = self.rnn(x, None)  # None represents zero
             # initial hidden state
         else:
             r_out, h_n = self.rnn(x, None)
 
         # choose r_out at the last time step
-        out = self.out(r_out[:, :, :])
+        out = self.out(h_n)
 
         return out
 
@@ -91,22 +90,18 @@ class QRNN(nn.Module):
                                                  size=self.BATCH_SIZE,
                                                  replace=True, p=None)
 
-                x = torch.tensor(X[batch_indexes, :, :])
-                y = torch.tensor(Y[batch_indexes])
-                msk = torch.tensor(loss_masks[batch_indexes])
+                x = torch.tensor(X[batch_indexes, :, :]).reshape(-1,
+                                                                 self.MAX_STEPS,
+                                                                 self.INPUT_SIZE).detach()
+                y = torch.tensor(Y[batch_indexes]).detach()
+                msk = torch.tensor(loss_masks[batch_indexes]).detach()
 
-                b_x = Variable(x.view(-1, self.MAX_STEPS,
-                                      self.INPUT_SIZE))  # reshape x to (
-                # batch, time_step, input_size)
-                b_y = Variable(y)  # batch y
-                b_m = Variable(msk)
-                # TODO adjust to the multi-output case
-                output = self(b_x).view(-1, self.MAX_STEPS, 2)  # rnn output
+                output = self(x).reshape(-1, self.OUTPUT_SIZE, 2)  # rnn output
 
-                # MSE loss
-                loss = self.loss_func(output[:, :, 0], b_y, b_m,
+                # quantile loss
+                loss = self.loss_func(output[:, :, 0], y, msk,
                                       self.q) + self.loss_func(output[:, :, 1],
-                                                               b_y, b_m,
+                                                               y, msk,
                                                                1 - self.q)
 
                 optimizer.zero_grad()  # clear gradients for this training step
@@ -124,7 +119,7 @@ class QRNN(nn.Module):
 
         X_test = Variable(torch.tensor(X_), volatile=True).type(
             torch.FloatTensor)
-        predicts_ = self(X_test).view(-1, self.MAX_STEPS, 2)
+        predicts_ = self(X_test).view(-1, self.OUTPUT_SIZE, 2)
         prediction_0 = unpadd_arrays(predicts_[:, :, 0].detach().numpy(), masks)
         prediction_1 = unpadd_arrays(predicts_[:, :, 1].detach().numpy(), masks)
 
