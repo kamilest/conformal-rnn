@@ -85,7 +85,7 @@ class ConformalForecaster(torch.nn.Module):
                     lengths_mask[i, :min(l, self.horizon), :] = 1
                 valid_out = lengths_mask * out
 
-                loss = criterion(valid_out, targets)
+                loss = criterion(valid_out.float(), targets.float())
                 loss.backward()
 
                 train_loss += loss.item()
