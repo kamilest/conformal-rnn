@@ -1,3 +1,5 @@
+import pickle
+
 import numpy as np
 import pandas as pd
 import torch
@@ -29,6 +31,7 @@ def get_multi_feature_windows(df_X, length, stride, horizon,
         return torch.tensor(XX), torch.tensor(YY)
     else:
         return XX, YY
+
 
 class WindowedDataset(torch.utils.data.Dataset):
     def __init__(self, X, length, stride, horizon):
@@ -147,3 +150,96 @@ def get_dataset(dataset, length=None, stride=None, horizon=None,
             test_dataset = torch.utils.data.TensorDataset(*test_windows)
 
     return train_dataset, cal_dataset, test_dataset
+
+
+def prepare_uci_datasets():
+    for dataset in ['energy', 'stock', 'hungary']:
+        for calibrate in [True, False]:
+            print('Dataset: {}, calibrated: {}'.format(dataset, calibrate))
+            return_raw = not calibrate
+            calibrated = 'calibrated' if calibrate else 'raw'
+            name = '{}_{}_default'.format(dataset, calibrated)
+            train, cal, test = get_dataset(dataset, calibrate=calibrate,
+                                           return_raw=return_raw)
+
+            with open('data/{}_train.pkl'.format(name), 'wb') as f:
+                pickle.dump(train, f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+
+            if calibrate:
+                with open('data/{}_calibrate.pkl'.format(name), 'wb') as f:
+                    pickle.dump(cal, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+            with open('data/{}_test.pkl'.format(name), 'wb') as f:
+                pickle.dump(test, f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+
+# def run_uci_experiments(retrain=False):
+#     baselines = ["CoRNN", "QRNN", "DPRNN"]
+#     exp_res_dict = dict({"CoRNN": [], "QRNN": [], "DPRNN": []})
+#
+#     baseline_results = dict({"CoRNN": dict({"CI_length": None,
+#                                             "Errors": None,
+#                                             "Coverages": None,
+#                                             "Intervals": None}),
+#                              "QRNN": dict({"CI_length": None,
+#                                            "Errors": None,
+#                                            "Coverages": None,
+#                                            "Intervals": None}),
+#                              "DPRNN": dict({"CI_length": None,
+#                                             "Errors": None,
+#                                             "Coverages": None,
+#                                             "Intervals": None})})
+#
+#     if retrain:
+#
+#         for n_sample_ in n_samples_:
+#             exp_results = collect_synthetic_results(noise_var_, params,
+#                                                     coverage=coverage,
+#                                                     seq_len=seq_len,
+#                                                     n_train_seq=n_train_seq,
+#                                                     n_test_seq=n_test_seq)
+#
+#             exp_res_dict["BJRNN"].append(exp_results["BJRNN"])
+#             exp_res_dict["QRNN"].append(exp_results["QRNN"])
+#             exp_res_dict["DPRNN"].append(exp_results["DPRNN"])
+#     else:
+#
+#         infile = open('saved_models/Experiment_2_result', 'rb')
+#         exp_res_dict = pickle.load(infile)
+#
+#     elif exp_mode == "1":
+#
+#     noise_vars = [0.1 * k for k in range(9)]
+#
+#     if retrain:
+#
+#         for noise_var in noise_vars:
+#             exp_results = collect_synthetic_results(noise_var, params,
+#                                                     coverage=coverage,
+#                                                     seq_len=seq_len,
+#                                                     n_train_seq=n_samples,
+#                                                     n_test_seq=n_test)
+#
+#             exp_res_dict["BJRNN"].append(exp_results["BJRNN"])
+#             exp_res_dict["QRNN"].append(exp_results["QRNN"])
+#             exp_res_dict["DPRNN"].append(exp_results["DPRNN"])
+#
+#     else:
+#
+#         infile = open('saved_models/Experiment_1_result', 'rb')
+#         exp_res_dict = pickle.load(infile)
+#
+#
+# for baseline in baselines:
+#     baseline_results[baseline]["CI_length"] = [
+#         exp_res_dict[baseline][k][0]["CI length"] for k in
+#         range(len(exp_res_dict[baseline]))]
+#     baseline_results[baseline]["Errors"] = [
+#         np.mean(np.concatenate(exp_res_dict[baseline][k][0]["Errors"])) for
+#         k in range(len(exp_res_dict[baseline]))]
+#     baseline_results[baseline]["Coverages"] = BJRNN_coverages = [
+#         exp_res_dict[baseline][k][0]["Coverage"] for k in
+#         range(len(exp_res_dict[baseline]))]
+#
+# return baseline_results
