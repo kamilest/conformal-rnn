@@ -8,6 +8,7 @@ from models.conformal import ConformalForecaster
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 
+from utils.performance import evaluate_performance
 
 def get_windows(X, length, stride, horizon, return_tensors=False):
     n_seq = (len(X) - length - horizon) // stride
@@ -211,30 +212,49 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
                 train_dataset = pickle.load(f)
             if baseline == 'CoRNN':
                 with open('data/{}_calibrate.pkl'.format(name), 'rb') as f:
-                    cal_dataset = pickle.load(f)
+                    calibration_dataset = pickle.load(f)
             else:
-                cal_dataset = None
+                calibration_dataset = None
             with open('data/{}_test.pkl'.format(name), 'rb') as f:
                 test_dataset = pickle.load(f)
 
             if retrain:
-                pass
-                # TODO train baseline
-            else:
-                pass
-                # TODO load trained model
+                if baseline == 'CoRNN':
+                    model = ConformalForecaster(
+                        embedding_size=params['embedding_size'],
+                        horizon=params['horizon'],
+                        error_rate=1 - params['coverage'])
+                    model.fit(train_dataset, calibration_dataset,
+                              epochs=params['epochs'], lr=params['lr'],
+                              batch_size=params['batch_size'])
 
-            coverages, intervals = None  # TODO compute this on test dataset
-            #     coverages, intervals = model.evaluate_coverage(test_dataset)
-            #     mean_coverage = torch.mean(coverages.float(), dim=0).item()
-            #     interval_widths = (intervals[:, 1] - intervals[:, 0]).squeeze().mean(
-            #         dim=0).tolist()
-            mean_coverage = None
-            interval_widths = None
-            results = {'coverages': coverages,
-                       'intervals': intervals,
-                       'mean_coverage': mean_coverage,
-                       'interval_widths': interval_widths}
+                    coverages, intervals = model.evaluate_coverage(test_dataset)
+                    mean_coverage = torch.mean(coverages.float(), dim=0).item()
+                    interval_widths = \
+                        (intervals[:, 1] - intervals[:, 0]) \
+                            .squeeze().mean(dim=0).tolist()
+                    results = {'coverages': coverages,
+                               'intervals': intervals,
+                               'mean_coverage': mean_coverage,
+                               'interval_widths': interval_widths}
+
+                else:
+                    # TODO fix parameters
+                    model = models[baseline](**params)
+
+                    # TODO train DPRNN/QRNN
+                    results = evaluate_performance(model, test_dataset[0],
+                                                   test_dataset[1],
+                                                   coverage=params['coverage'])
+
+                with open('saved_results/{}_{}.pkl'.format(baseline, dataset),
+                          'wb') as f:
+                    pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+            else:
+                with open('saved_results/{}_{}.pkl'.format(baseline, dataset),
+                          'rb') as f:
+                    results = pickle.load(f)
 
             baseline_results[baseline][dataset] = results
 
