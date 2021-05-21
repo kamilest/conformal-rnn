@@ -66,8 +66,8 @@ class QRNN(nn.Module):
     def fit(self, X, Y):
         X_padded, _ = padd_arrays(X, max_length=self.MAX_STEPS)
         Y_padded, loss_masks = np.squeeze(
-            padd_arrays(Y, max_length=self.MAX_STEPS)[0], axis=2), np.squeeze(
-            padd_arrays(Y, max_length=self.MAX_STEPS)[1], axis=2)
+            padd_arrays(Y, max_length=self.OUTPUT_SIZE)[0], axis=2), np.squeeze(
+            padd_arrays(Y, max_length=self.OUTPUT_SIZE)[1], axis=2)
 
         X = Variable(torch.tensor(X_padded), volatile=True).type(
             torch.FloatTensor)
