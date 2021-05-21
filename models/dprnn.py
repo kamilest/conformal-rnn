@@ -56,23 +56,21 @@ class DPRNN(nn.Module):
         # h_c shape (n_layers, batch, hidden_size)
 
         if self.mode == "LSTM":
-            r_out, (h_n, h_c) = self.rnn(x,
-                                         None)  # None represents zero
+            r_out, (h_n, h_c) = self.rnn(x, None)  # None represents zero
             # initial hidden state
 
         else:
             r_out, h_n = self.rnn(x, None)
 
         # choose r_out at the last time step
-        out = self.out(self.dropout(r_out[:, :, :]))
-
+        out = self.out(self.dropout(h_n))
         return out
 
     def fit(self, X, Y):
         X_padded, _ = padd_arrays(X, max_length=self.MAX_STEPS)
         Y_padded, loss_masks = np.squeeze(
-            padd_arrays(Y, max_length=self.MAX_STEPS)[0], axis=2), np.squeeze(
-            padd_arrays(Y, max_length=self.MAX_STEPS)[1], axis=2)
+            padd_arrays(Y, max_length=self.OUTPUT_SIZE)[0], axis=2), np.squeeze(
+            padd_arrays(Y, max_length=self.OUTPUT_SIZE)[1], axis=2)
 
         X = Variable(torch.tensor(X_padded), volatile=True).type(
             torch.FloatTensor)
@@ -96,19 +94,15 @@ class DPRNN(nn.Module):
                                                  size=self.BATCH_SIZE,
                                                  replace=True, p=None)
 
-                x = torch.tensor(X[batch_indexes, :, :])
-                y = torch.tensor(Y[batch_indexes])
-                msk = torch.tensor(loss_masks[batch_indexes])
-                # TODO adjust to the multi-output case
-                b_x = Variable(x.view(-1, self.MAX_STEPS,
-                                      self.INPUT_SIZE))  # reshape x to (
-                # batch, time_step, input_size)
-                b_y = Variable(y)  # batch y
-                b_m = Variable(msk)
+                x = torch.tensor(X[batch_indexes, :, :]).reshape(-1,
+                                                                 self.MAX_STEPS,
+                                                                 self.INPUT_SIZE).detach()
+                y = torch.tensor(Y[batch_indexes]).detach()
+                msk = torch.tensor(loss_masks[batch_indexes]).detach()
 
-                output = self(b_x).view(-1, self.MAX_STEPS)  # rnn output
+                output = self(x).reshape(-1, self.OUTPUT_SIZE)  # rnn output
 
-                loss = self.loss_func(output, b_y, b_m)  # MSE loss
+                loss = self.loss_func(output, y, msk)  # MSE loss
 
                 optimizer.zero_grad()  # clear gradients for this training step
                 loss.backward()  # backpropagation, compute gradients
@@ -130,9 +124,9 @@ class DPRNN(nn.Module):
             torch.FloatTensor)
 
         for idx in range(num_samples):
-            predicts_ = self(X_test).view(-1, self.MAX_STEPS)
+            predicts_ = self(X_test).view(-1, self.OUTPUT_SIZE)
             predictions.append(
-                predicts_.detach().numpy().reshape((-1, 1, self.MAX_STEPS)))
+                predicts_.detach().numpy().reshape((-1, 1, self.OUTPUT_SIZE)))
 
         pred_mean = unpadd_arrays(
             np.mean(np.concatenate(predictions, axis=1), axis=1), masks)
