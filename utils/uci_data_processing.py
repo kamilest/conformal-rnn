@@ -7,7 +7,6 @@ import torch
 from models.conformal import ConformalForecaster
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
-
 from utils.performance import evaluate_performance
 
 
@@ -18,7 +17,7 @@ def get_windows(X, length, stride, horizon, return_tensors=False):
           range(n_seq)]
 
     if return_tensors:
-        return torch.tensor(X_), torch.tensor(Y_)
+        return torch.FloatTensor(X_), torch.FloatTensor(Y_)
     else:
         return X_, Y_
 
@@ -34,7 +33,7 @@ def get_multi_feature_windows(df_X, length, stride, horizon,
         YY.extend(Y_)
 
     if return_tensors:
-        return torch.tensor(XX), torch.tensor(YY)
+        return torch.FloatTensor(XX), torch.FloatTensor(YY)
     else:
         return XX, YY
 
@@ -53,7 +52,9 @@ class WindowedDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         start_idx = idx * self.stride
         end_idx = start_idx + self.length
-        return self.X[start_idx:end_idx], self.X[end_idx:end_idx + self.horizon]
+        return self.X[start_idx:end_idx], \
+               self.X[end_idx:end_idx + self.horizon], \
+               self.length
 
 
 def get_dataset(dataset, length=None, stride=None, horizon=None,
@@ -220,6 +221,8 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
         params['output_size'] = output_size
 
         for baseline in baselines:
+            print('{}, {}'.format(baseline, dataset))
+
             calibrated = 'calibrated' if baseline == 'CoRNN' else 'raw'
             name = '{}_{}_default'.format(dataset, calibrated)
 
