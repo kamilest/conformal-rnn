@@ -79,9 +79,9 @@ def get_dataset(dataset, length=None, stride=None, horizon=None,
         if dataset == 'energy':
             df = pd.read_csv('data/energy_data.csv')
             train_features = ['Appliances']
-            length = 60 if length is None else length
+            length = 600 if length is None else length
             stride = 5 if stride is None else stride
-            horizon = 12 if horizon is None else horizon
+            horizon = 120 if horizon is None else horizon
 
         else:
             df = pd.read_csv('data/stock_data.csv')
