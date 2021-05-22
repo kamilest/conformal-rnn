@@ -255,6 +255,9 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
 
             if retrain:
                 if baseline == 'CoRNN':
+                    params['epochs'] = 1000
+                    if dataset == 'energy':
+                        params['epochs'] = 100
                     model = ConformalForecaster(
                         embedding_size=params['embedding_size'],
                         horizon=horizon,
@@ -274,6 +277,7 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
                                'interval_widths': interval_widths}
 
                 else:
+                    params['epochs'] = 10
                     model = models[baseline](**params)
                     model.fit(train_dataset[0], train_dataset[1])
                     results = evaluate_performance(model, test_dataset[0],
