@@ -175,13 +175,17 @@ def get_dataset(dataset, length=None, stride=None, horizon=None,
     return train_dataset, cal_dataset, test_dataset
 
 
-def prepare_uci_datasets():
-    for dataset in ['energy', 'stock', 'hungary']:
-        for calibrate in [True, False]:
+def prepare_uci_datasets(datasets=None, calibrates=None, suffix='default'):
+    if datasets is None:
+        datasets = ['energy', 'stock', 'hungary']
+    if calibrates is None:
+        calibrates = [True, False]
+    for dataset in datasets:
+        for calibrate in calibrates:
             print('Dataset: {}, calibrated: {}'.format(dataset, calibrate))
             return_raw = not calibrate
             calibrated = 'calibrated' if calibrate else 'raw'
-            name = '{}_{}_default'.format(dataset, calibrated)
+            name = '{}_{}_{}'.format(dataset, calibrated, suffix)
             train, cal, test = get_dataset(dataset, calibrate=calibrate,
                                            return_raw=return_raw)
 
@@ -199,7 +203,7 @@ def prepare_uci_datasets():
 
 
 def run_uci_experiments(params=None, baselines=None, datasets=None,
-                        retrain=False):
+                        retrain=False, suffix='default'):
     if datasets is None:
         datasets = ['energy', 'stock', 'hungary']
 
@@ -241,7 +245,7 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
             print('{}, {}'.format(baseline, dataset))
 
             calibrated = 'calibrated' if baseline == 'CoRNN' else 'raw'
-            name = '{}_{}_default'.format(dataset, calibrated)
+            name = '{}_{}_{}'.format(dataset, calibrated, suffix)
 
             with open('data/{}_train.pkl'.format(name), 'rb') as f:
                 train_dataset = pickle.load(f)
@@ -285,12 +289,18 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
                                                    coverage=params['coverage'],
                                                    error_threshold="Auto")
 
-                with open('saved_results/{}_{}.pkl'.format(baseline, dataset),
+                baseline_suffix = '' if suffix == 'default' else ('_' + suffix)
+                with open('saved_results/{}_{}{}.pkl'.format(baseline,
+                                                             dataset,
+                                                             baseline_suffix),
                           'wb') as f:
                     pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
             else:
-                with open('saved_results/{}_{}.pkl'.format(baseline, dataset),
+                baseline_suffix = '' if suffix == 'default' else ('_' + suffix)
+                with open('saved_results/{}_{}{}.pkl'.format(baseline,
+                                                             dataset,
+                                                             baseline_suffix),
                           'rb') as f:
                     results = pickle.load(f)
 
