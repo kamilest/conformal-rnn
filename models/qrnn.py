@@ -11,7 +11,7 @@ torch.manual_seed(1)
 
 class QRNN(nn.Module):
     def __init__(self, mode="LSTM", epochs=5, batch_size=150, max_steps=50,
-                 input_size=30, lr=0.01, output_size=1, embedding_size=20,
+                 input_size=1, lr=0.01, output_size=1, embedding_size=20,
                  n_layers=1, n_steps=50, alpha=0.05):
 
         super(QRNN, self).__init__()
