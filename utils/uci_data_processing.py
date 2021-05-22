@@ -79,9 +79,9 @@ def get_dataset(dataset, length=None, stride=None, horizon=None,
         if dataset == 'energy':
             df = pd.read_csv('data/energy_data.csv')
             train_features = ['Appliances']
-            length = 600 if length is None else length
+            length = 60 if length is None else length
             stride = 5 if stride is None else stride
-            horizon = 120 if horizon is None else horizon
+            horizon = 12 if horizon is None else horizon
 
         else:
             df = pd.read_csv('data/stock_data.csv')
@@ -225,8 +225,8 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
 
     for dataset in datasets:
         if dataset == 'energy':
-            max_steps = 600
-            output_size = horizon = 120
+            max_steps = 60
+            output_size = horizon = 12
         elif dataset == 'stock':
             max_steps = 30
             output_size = horizon = 10
