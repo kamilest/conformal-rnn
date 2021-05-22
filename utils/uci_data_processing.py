@@ -27,7 +27,9 @@ def get_multi_feature_windows(df_X, length, stride, horizon,
     XX = []
     YY = []
     for feature in df_X.columns:
-        X_, Y_ = get_windows(df_X[feature].values, length, stride, horizon,
+        X_, Y_ = get_windows(df_X[feature].values.reshape(-1, 1), length,
+                             stride,
+                             horizon,
                              return_tensors=False)
         XX.extend(X_)
         YY.extend(Y_)
@@ -56,6 +58,19 @@ class WindowedDataset(torch.utils.data.Dataset):
                self.X[end_idx:end_idx + self.horizon], \
                self.length
 
+class HungarianChickenpoxDataset(torch.utils.data.Dataset):
+    def __init__(self, X, Y, length):
+        super(HungarianChickenpoxDataset, self).__init__()
+        self.X = X
+        self.Y = Y
+        self.length = length
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.Y[idx], self.length
+
 
 def get_dataset(dataset, length=None, stride=None, horizon=None,
                 return_raw=False, calibrate=True):
@@ -63,9 +78,9 @@ def get_dataset(dataset, length=None, stride=None, horizon=None,
         if dataset == 'energy':
             df = pd.read_csv('data/energy_data.csv')
             train_features = ['Appliances']
-            length = 600 if length is None else length
+            length = 60 if length is None else length
             stride = 5 if stride is None else stride
-            horizon = 120 if horizon is None else horizon
+            horizon = 12 if horizon is None else horizon
 
         else:
             df = pd.read_csv('data/stock_data.csv')
@@ -152,9 +167,9 @@ def get_dataset(dataset, length=None, stride=None, horizon=None,
             cal_dataset = cal_windows
             test_dataset = test_windows
         else:
-            train_dataset = torch.utils.data.TensorDataset(*train_windows)
-            cal_dataset = torch.utils.data.TensorDataset(*cal_windows)
-            test_dataset = torch.utils.data.TensorDataset(*test_windows)
+            train_dataset = HungarianChickenpoxDataset(*train_windows, length)
+            cal_dataset = HungarianChickenpoxDataset(*cal_windows, length)
+            test_dataset = HungarianChickenpoxDataset(*test_windows, length)
 
     return train_dataset, cal_dataset, test_dataset
 
@@ -192,7 +207,7 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
     models = {"CoRNN": ConformalForecaster, "DPRNN": DPRNN, "QRNN": QRNN}
 
     if params is None:
-        params = {'epochs': 4000,
+        params = {'epochs': 1000,
                   'batch_size': 100,
                   'embedding_size': 20,
                   'coverage': 0.9,
