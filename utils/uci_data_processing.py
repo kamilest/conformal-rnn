@@ -58,6 +58,7 @@ class WindowedDataset(torch.utils.data.Dataset):
                self.X[end_idx:end_idx + self.horizon], \
                self.length
 
+
 class HungarianChickenpoxDataset(torch.utils.data.Dataset):
     def __init__(self, X, Y, length):
         super(HungarianChickenpoxDataset, self).__init__()
@@ -212,7 +213,8 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
                   'embedding_size': 20,
                   'coverage': 0.9,
                   'lr': 0.01,
-                  'n_steps': 500}
+                  'n_steps': 500,
+                  'input_size': 1}
 
     baseline_results = dict({"CoRNN": dict({'energy': None, 'stock': None,
                                             'hungary': None}),
