@@ -8,6 +8,8 @@ from models.qrnn import QRNN
 from utils.mimic_data_processing import get_mimic_splits
 from utils.performance import evaluate_performance
 
+torch.manual_seed(1)
+
 
 def run_mimic_experiments(params=None, baselines=None, retrain=False,
                           horizon=2):
