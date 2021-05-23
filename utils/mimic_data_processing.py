@@ -1,21 +1,30 @@
 # Copyright (c) 2020, Ahmed M. Alaa
 # Licensed under the BSD 3-clause license (see LICENSE.txt)
 
-from __future__ import absolute_import, division, print_function
-
 import pickle
-import sys
 
 import numpy as np
+import torch
 from sklearn.preprocessing import StandardScaler
 
-if not sys.warnoptions:
-    import warnings
 
-    warnings.simplefilter("ignore")
+class MIMICDataset(torch.utils.data.Dataset):
+    """Synthetic autoregressive forecast dataset."""
+
+    def __init__(self, X, Y, sequence_lengths):
+        super(MIMICDataset, self).__init__()
+        self.X = X
+        self.Y = Y
+        self.sequence_lengths = sequence_lengths
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.Y[idx], self.sequence_lengths[idx]
 
 
-def process_MIMIC_data():
+def process_MIMIC_data(horizon=2, feature='wbchigh'):
     feature_names = ['temphigh', 'heartratehigh', 'sysbplow', 'diasbplow',
                      'meanbplow', 'spo2high',
                      'fio2high', 'respratelow', 'glucoselow', 'bicarbonatehigh',
@@ -29,25 +38,47 @@ def process_MIMIC_data():
                      'mechanical_ventilator'
                      'age', 'weight']
 
+    idx = feature_names.index(feature)
+
     with open('data/mimic.p', 'rb') as f:
         MIMIC_data = pickle.load(f)
 
-    XX = MIMIC_data["longitudinal"][:, :, :]
-    static = np.repeat(MIMIC_data['static'].reshape((-1, 1, 2)), XX.shape[1],
-                       axis=1)
-
-    X = np.concatenate((XX, static), axis=2)  # MIMIC_data["longitudinal"][:,
-    # :, :] #list(set(list(range(28))) - set([23, 24, 25]))]
-    Y = MIMIC_data["longitudinal"][:, :, 23]
-    T = MIMIC_data["longitudinal"][:, :, 25]
+    Y = MIMIC_data["longitudinal"][:, :, idx]  # 'wbchigh'
     L = MIMIC_data['trajectory_lengths']
 
     scaler = StandardScaler()
-    X_unrolled = X.reshape((X.shape[0] * X.shape[1], X.shape[2]))
-    X_unrolled = scaler.fit_transform(X_unrolled)
-    X_rerolled = X_unrolled.reshape((X.shape[0], X.shape[1], X.shape[2]))
-    X_ = [X_rerolled[k, :L[k] - 1, :] for k in range(X_rerolled.shape[0])]
-    Y_ = [Y[k, 1:L[k]] for k in range(Y.shape[0])]
-    T_ = [T[k, :L[k]] for k in range(T.shape[0])]
+    Y_scaled = scaler.fit_transform(Y)
 
-    return X_, Y_, T_, L, feature_names
+    X_ = []
+    Y_ = []
+    for k in np.where(L > 5):
+        X_.append(Y_scaled[k, :L[k] - horizon])
+        Y_.append(Y[k, L[k] - horizon:L[k]])
+
+    return X_, Y_, L
+
+
+def split_MIMIC_data(n_train=2800, n_calibration=1823, n_test=500,
+                     conformal=True, feature='wbchigh'):
+    perm = np.random.RandomState(seed=0).permutation(n_train + n_calibration +
+                                                     n_test)
+    train_idx = perm[:n_train]
+    calibration_idx = perm[n_train:n_train + n_calibration]
+    train_calibration_idx = perm[:n_train + n_calibration]
+    test_idx = perm[n_train + n_calibration:]
+
+    X_, Y_, L = process_MIMIC_data(feature=feature)
+    assert n_train + n_calibration + n_test == len(X_)
+
+    if conformal:
+        train_dataset = MIMICDataset(X_[train_idx], Y_[train_idx], L[train_idx])
+        calibration_dataset = MIMICDataset(X_[calibration_idx],
+                                           Y_[calibration_idx],
+                                           L[calibration_idx])
+        test_dataset = MIMICDataset(X_[test_idx], Y_[test_idx], L[test_idx])
+    else:
+        train_dataset = X_[train_calibration_idx], Y_[train_calibration_idx]
+        calibration_dataset = None
+        test_dataset = X_[test_idx], Y_[test_idx]
+
+    return train_dataset, calibration_dataset, test_dataset
