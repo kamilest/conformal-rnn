@@ -115,7 +115,7 @@ class QRNN(nn.Module):
         if type(X) is list:
             X_, masks = padd_arrays(X, max_length=self.MAX_STEPS)
         else:
-            X_, masks = padd_arrays([X], max_length=self.MAX_STEPS)
+            X_, masks = padd_arrays(X, max_length=self.MAX_STEPS)
 
         X_test = Variable(torch.tensor(X_), volatile=True).type(
             torch.FloatTensor)
