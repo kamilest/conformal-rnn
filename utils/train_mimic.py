@@ -13,7 +13,7 @@ torch.manual_seed(1)
 
 
 def run_medical_experiments(params=None, baselines=None, retrain=False,
-                            dataset='mimic', horizon=2):
+                            dataset='mimic', horizon=None):
     if baselines is None:
         baselines = ["CPRNN", "QRNN", "DPRNN"]
     models = {"CPRNN": ConformalForecaster, "DPRNN": DPRNN, "QRNN": QRNN}
@@ -81,11 +81,11 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                       'wb') as f:
                 pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-        else:
-            for baseline in baselines:
-                with open('saved_results/{}_{}.pkl'.format(dataset, baseline),
-                          'rb') as f:
-                    results = pickle.load(f)
-                baseline_results[baseline] = results
+    else:
+        for baseline in baselines:
+            with open('saved_results/{}_{}.pkl'.format(dataset, baseline),
+                      'rb') as f:
+                results = pickle.load(f)
+            baseline_results[baseline] = results
 
     return baseline_results
