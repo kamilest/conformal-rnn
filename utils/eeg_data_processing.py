@@ -3,8 +3,29 @@ import os
 import pathlib
 import pickle
 
+import numpy as np
+import torch
+from scipy.signal import resample
+from sklearn.preprocessing import StandardScaler
+
 eeg_root_train = 'data/eeg/SMNI_CMI_TRAIN'
 eeg_root_test = 'data/eeg/SMNI_CMI_TEST'
+
+
+class EEGDataset(torch.utils.data.Dataset):
+    """Synthetic autoregressive forecast dataset."""
+
+    def __init__(self, X, Y, sequence_lengths):
+        super(EEGDataset, self).__init__()
+        self.X = X
+        self.Y = Y
+        self.sequence_lengths = sequence_lengths
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.Y[idx], self.sequence_lengths[idx]
 
 
 def parse_eeg_file(filename):
@@ -35,7 +56,8 @@ def get_raw_eeg_data(split='train', include_alcoholic_class=False,
     else:
         dataset = []
         for folder in os.listdir(root):
-            if folder != 'README' and (include_alcoholic_class or folder[3] == 'c'):
+            if folder != 'README' and (
+                    include_alcoholic_class or folder[3] == 'c'):
                 subfolder = os.path.join(root, folder)
                 for filename in os.listdir(subfolder):
                     f = os.path.join(subfolder, filename)
@@ -47,5 +69,48 @@ def get_raw_eeg_data(split='train', include_alcoholic_class=False,
 
     return dataset
 
-# def get_eeg_splits(length=40, horizon=10, train=):
 
+def resample_split(raw_data, length, horizon):
+    raw_data_resampled = resample(raw_data, length + horizon, axis=1)
+
+    X = raw_data_resampled[:, :-horizon]
+    Y = raw_data_resampled[:, -horizon:]
+    return X, Y
+
+
+def get_eeg_splits(length=40, horizon=10, calibrate=0.2, conformal=True):
+    X_train, Y_train = resample_split(get_raw_eeg_data('train'), length,
+                                      horizon)
+    X_test, Y_test = resample_split(get_raw_eeg_data('test'), length,
+                                    horizon)
+
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    if conformal:
+        calibration_idx = np.random.choice(len(X_train), replace=False,
+                                           size=int(calibrate * len(X_train)))
+        train_idx = np.setdiff1d(range(len(X_train)), calibration_idx)
+
+        train_dataset = EEGDataset(
+            torch.FloatTensor(X_train_scaled[train_idx]).reshape(-1, length, 1),
+            torch.FloatTensor(Y_train[train_idx]).reshape(-1, horizon, 1),
+            torch.ones(len(train_idx), dtype=torch.int) * length)
+
+        calibration_dataset = EEGDataset(
+            torch.FloatTensor(X_train_scaled[calibration_idx]).reshape(-1, length, 1),
+            torch.FloatTensor(Y_train[calibration_idx]).reshape(-1, horizon, 1),
+            torch.ones(len(calibration_idx)) * length)
+
+        test_dataset = EEGDataset(
+            torch.FloatTensor(X_test_scaled).reshape(-1, length, 1),
+            torch.FloatTensor(Y_test).reshape(-1, horizon, 1),
+            torch.ones(len(X_test_scaled), dtype=torch.int) * length)
+
+    else:
+        train_dataset = X_train_scaled, Y_train
+        calibration_dataset = None
+        test_dataset = X_test_scaled, Y_test
+
+    return train_dataset, calibration_dataset, test_dataset
