@@ -6,16 +6,22 @@ from models.conformal import ConformalForecaster
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from utils.mimic_data_processing import get_mimic_splits
+from utils.eeg_data_processing import get_eeg_splits
 from utils.performance import evaluate_performance
 
 torch.manual_seed(1)
 
 
-def run_mimic_experiments(params=None, baselines=None, retrain=False,
-                          horizon=2):
+def run_medical_experiments(params=None, baselines=None, retrain=False,
+                            dataset='mimic', horizon=2):
     if baselines is None:
         baselines = ["CPRNN", "QRNN", "DPRNN"]
     models = {"CPRNN": ConformalForecaster, "DPRNN": DPRNN, "QRNN": QRNN}
+
+    if horizon is None:
+        horizon = 2 if dataset == 'mimic' else 10
+
+    split_fn = get_mimic_splits if dataset == 'mimic' else get_eeg_splits
 
     if params is None:
         params = {'epochs': 1000,
@@ -28,21 +34,21 @@ def run_mimic_experiments(params=None, baselines=None, retrain=False,
 
     baseline_results = dict({"CPRNN": {}, "QRNN": {}, "DPRNN": {}})
 
-    params['max_steps'] = 49 - horizon
+    params['max_steps'] = (49 - horizon) if dataset == 'mimic' else 40
     params['output_size'] = horizon
 
     if retrain:
         for baseline in baselines:
             print('Training {}'.format(baseline))
             if baseline == 'CPRNN':
-                params['epochs'] = 1000
+                params['epochs'] = 1000 if dataset == 'mimic' else 100
                 model = ConformalForecaster(
                     embedding_size=params['embedding_size'],
                     horizon=horizon,
                     error_rate=1 - params['coverage'])
 
                 train_dataset, calibration_dataset, test_dataset = \
-                    get_mimic_splits(conformal=True, horizon=horizon)
+                    split_fn(conformal=True, horizon=horizon)
 
                 model.fit(train_dataset, calibration_dataset,
                           epochs=params['epochs'], lr=params['lr'],
@@ -62,7 +68,7 @@ def run_mimic_experiments(params=None, baselines=None, retrain=False,
                 model = models[baseline](**params)
 
                 train_dataset, _, test_dataset = \
-                    get_mimic_splits(conformal=False, horizon=horizon)
+                    split_fn(conformal=False, horizon=horizon)
 
                 model.fit(train_dataset[0], train_dataset[1])
                 results = evaluate_performance(model, test_dataset[0],
@@ -71,12 +77,13 @@ def run_mimic_experiments(params=None, baselines=None, retrain=False,
                                                error_threshold="Auto")
 
             baseline_results[baseline] = results
-            with open('saved_results/mimic_{}.pkl'.format(baseline), 'wb') as f:
+            with open('saved_results/{}_{}.pkl'.format(dataset, baseline),
+                      'wb') as f:
                 pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
         else:
             for baseline in baselines:
-                with open('saved_results/mimic_{}.pkl'.format(baseline),
+                with open('saved_results/{}_{}.pkl'.format(dataset, baseline),
                           'rb') as f:
                     results = pickle.load(f)
                 baseline_results[baseline] = results
