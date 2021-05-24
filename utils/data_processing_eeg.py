@@ -13,8 +13,6 @@ eeg_root_test = 'data/eeg/SMNI_CMI_TEST'
 
 
 class EEGDataset(torch.utils.data.Dataset):
-    """Synthetic autoregressive forecast dataset."""
-
     def __init__(self, X, Y, sequence_lengths):
         super(EEGDataset, self).__init__()
         self.X = X
