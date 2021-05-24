@@ -58,10 +58,15 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                 interval_widths = \
                     (intervals[:, 1] - intervals[:, 0]) \
                         .squeeze().mean(dim=0).tolist()
-                results = {'coverages': coverages,
-                           'intervals': intervals,
-                           'mean_coverage': mean_coverage,
-                           'interval_widths': interval_widths}
+                point_predictions, errors = \
+                    model.get_point_predictions_and_errors(test_dataset)
+                results = {'Point predictions': point_predictions,
+                           'Errors': errors,
+                           'Coverage indicators': coverages,
+                           'Upper limit': intervals[:, 1],
+                           'Lower limit': intervals[:, 0],
+                           'Coverage': mean_coverage,
+                           'Confidence intervals': interval_widths}
 
             else:
                 params['epochs'] = 10
