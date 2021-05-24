@@ -22,7 +22,7 @@ class MIMICDataset(torch.utils.data.Dataset):
         return self.X[idx], self.Y[idx], self.sequence_lengths[idx]
 
 
-def process_mimic_data(horizon=2, feature='wbchigh'):
+def process_mimic_data(feature='wbchigh'):
     feature_names = ['temphigh', 'heartratehigh', 'sysbplow', 'diasbplow',
                      'meanbplow', 'spo2high',
                      'fio2high', 'respratelow', 'glucoselow', 'bicarbonatehigh',
@@ -44,15 +44,7 @@ def process_mimic_data(horizon=2, feature='wbchigh'):
     Y = MIMIC_data["longitudinal"][:, :, idx]  # 'wbchigh'
     L = MIMIC_data['trajectory_lengths']
 
-    X_ = []
-    Y_ = []
-    L_ = []
-    for k in np.where(L > 4)[0]:
-        X_.append(Y[k, :L[k] - horizon])
-        Y_.append(Y[k, L[k] - horizon:L[k]])
-        L_.append(L[k])
-
-    return X_, Y_, L_
+    return Y, L
 
 
 def get_mimic_dataset(X, Y, L, idx):
@@ -67,32 +59,66 @@ def get_mimic_dataset(X, Y, L, idx):
 
 
 def get_mimic_splits(n_train=2000, n_calibration=1823, n_test=500,
-                     conformal=True, feature='wbchigh', horizon=2):
-    perm = np.random.RandomState(seed=0).permutation(n_train + n_calibration +
-                                                     n_test)
-    train_idx = perm[:n_train]
-    calibration_idx = perm[n_train:n_train + n_calibration]
-    train_calibration_idx = perm[:n_train + n_calibration]
-    test_idx = perm[n_train + n_calibration:]
-
-    X_, Y_, L = process_mimic_data(feature=feature, horizon=horizon)
-    assert n_train + n_calibration + n_test == len(X_)
-
-    # TODO scaling
-
-    if conformal:
-        train_dataset = get_mimic_dataset(X_, Y_, L, train_idx)
-        calibration_dataset = get_mimic_dataset(X_, Y_, L, calibration_idx)
-        test_dataset = get_mimic_dataset(X_, Y_, L, test_idx)
+                     conformal=True, feature='wbchigh', horizon=2, cached=True):
+    if cached:
+        if conformal:
+            with open('processed_data/mimic_conformal.pkl', 'rb') as f:
+                train_dataset, calibration_dataset, test_dataset = \
+                    pickle.load(f)
+        else:
+            with open('processed_data/mimic_raw.pkl', 'rb') as f:
+                train_dataset, calibration_dataset, test_dataset = \
+                    pickle.load(f)
 
     else:
-        train_dataset = [X_[i] for i in train_calibration_idx], \
-                        [Y_[i] for i in train_calibration_idx],
-        calibration_dataset = None
-        test_dataset = [X_[i] for i in test_idx], [Y_[i] for i in test_idx]
+        perm = np.random.RandomState(seed=0).permutation(
+            n_train + n_calibration + n_test)
+        train_idx = perm[:n_train]
+        calibration_idx = perm[n_train:n_train + n_calibration]
+        train_calibration_idx = perm[:n_train + n_calibration]
+        test_idx = perm[n_train + n_calibration:]
 
-    # TODO save test dataset for visualisation
-    # with open('processed_data/mimic_test.pkl', 'wb') as f:
-    #     pickle.dump((X_test, Y_test), f, protocol=pickle.HIGHEST_PROTOCOL)
+        Y, L = process_mimic_data(feature=feature)
+        assert n_train + n_calibration + n_test == len(np.where(L > 4)[0])
+
+        scaler = StandardScaler()
+        scaler.fit(Y[np.where(L > 4)[0]][train_idx].reshape(-1, 1))
+
+        X_ = []
+        X_unscaled = []
+        Y_ = []
+        L_ = []
+        for k in np.where(L > 4)[0]:
+            X_.append(scaler.transform(Y[k, :L[k] - horizon]
+                                       .reshape(-1, 1)).reshape(L[k] - horizon))
+            X_unscaled.append(Y[k, :L[k] - horizon])
+            Y_.append(Y[k, L[k] - horizon:L[k]])
+            L_.append(L[k])
+
+        X_test = [X_unscaled[i] for i in test_idx]
+        Y_test = [Y_[i] for i in test_idx]
+        with open('processed_data/mimic_test_vis.pkl', 'wb') as f:
+            pickle.dump((X_test, Y_test), f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        if conformal:
+            train_dataset = get_mimic_dataset(X_, Y_, L, train_idx)
+            calibration_dataset = get_mimic_dataset(X_, Y_, L, calibration_idx)
+            test_dataset = get_mimic_dataset(X_, Y_, L, test_idx)
+
+            with open('processed_data/mimic_conformal.pkl', 'wb') as f:
+                pickle.dump((train_dataset, calibration_dataset, test_dataset),
+                            f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+
+        else:
+            train_dataset = [X_[i] for i in train_calibration_idx], \
+                            [Y_[i] for i in train_calibration_idx],
+            calibration_dataset = None
+            test_dataset = [X_[i] for i in test_idx], [Y_[i] for i in test_idx]
+
+            with open('processed_data/mimic_raw.pkl', 'wb') as f:
+                pickle.dump((train_dataset, calibration_dataset, test_dataset),
+                            f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
 
     return train_dataset, calibration_dataset, test_dataset
