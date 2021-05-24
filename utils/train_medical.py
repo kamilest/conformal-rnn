@@ -2,7 +2,7 @@ import pickle
 
 import torch
 
-from models.conformal import CPRNN
+from models.cprnn import CPRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from utils.data_processing_mimic import get_mimic_splits

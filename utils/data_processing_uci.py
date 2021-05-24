@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from models.conformal import CPRNN
+from models.cprnn import CPRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from utils.performance import evaluate_performance

@@ -1,6 +1,6 @@
 import torch
 
-from models.conformal import CPRNN
+from models.cprnn import CPRNN
 from utils.make_data import generate_autoregressive_forecast_dataset
 
 
