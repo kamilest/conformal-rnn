@@ -5,8 +5,8 @@ import torch
 from models.conformal import ConformalForecaster
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
-from utils.mimic_data_processing import get_mimic_splits
-from utils.eeg_data_processing import get_eeg_splits
+from utils.data_processing_mimic import get_mimic_splits
+from utils.data_processing_eeg import get_eeg_splits
 from utils.performance import evaluate_performance
 
 torch.manual_seed(1)
