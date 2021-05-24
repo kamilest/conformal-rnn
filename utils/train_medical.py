@@ -13,7 +13,7 @@ torch.manual_seed(1)
 
 
 def run_medical_experiments(params=None, baselines=None, retrain=False,
-                            dataset='mimic', horizon=None):
+                            dataset='mimic', length=None, horizon=None):
     if baselines is None:
         baselines = ["CPRNN", "QRNN", "DPRNN"]
     models = {"CPRNN": CPRNN, "DPRNN": DPRNN, "QRNN": QRNN}
@@ -34,7 +34,11 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
 
     baseline_results = dict({"CPRNN": {}, "QRNN": {}, "DPRNN": {}})
 
-    params['max_steps'] = (49 - horizon) if dataset == 'mimic' else 40
+    if length is None:
+        params['max_steps'] = (49 - horizon) if dataset == 'mimic' else 40
+    else:
+        params['max_steps'] = length
+
     params['output_size'] = horizon
 
     if retrain:
