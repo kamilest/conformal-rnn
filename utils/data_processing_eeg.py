@@ -76,45 +76,69 @@ def downsample_sequences(raw_data, length, horizon):
     return X, Y
 
 
-def get_eeg_splits(length=40, horizon=10, calibrate=0.2, conformal=True):
-    X_train, Y_train = downsample_sequences(get_raw_eeg_data('train'), length,
-                                            horizon)
-    X_test, Y_test = downsample_sequences(get_raw_eeg_data('test'), length,
-                                          horizon)
-
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-
-    if conformal:
-        calibration_idx = np.random.RandomState(seed=0)\
-            .choice(len(X_train),
-                    replace=False,
-                    size=int(calibrate * len(X_train)))
-        train_idx = np.setdiff1d(range(len(X_train)), calibration_idx)
-
-        train_dataset = EEGDataset(
-            torch.FloatTensor(X_train_scaled[train_idx]).reshape(-1, length, 1),
-            torch.FloatTensor(Y_train[train_idx]).reshape(-1, horizon, 1),
-            torch.ones(len(train_idx), dtype=torch.int) * length)
-
-        calibration_dataset = EEGDataset(
-            torch.FloatTensor(
-                X_train_scaled[calibration_idx]).reshape(-1, length, 1),
-            torch.FloatTensor(Y_train[calibration_idx]).reshape(-1, horizon, 1),
-            torch.ones(len(calibration_idx)) * length)
-
-        test_dataset = EEGDataset(
-            torch.FloatTensor(X_test_scaled).reshape(-1, length, 1),
-            torch.FloatTensor(Y_test).reshape(-1, horizon, 1),
-            torch.ones(len(X_test_scaled), dtype=torch.int) * length)
-
+def get_eeg_splits(length=40, horizon=10, calibrate=0.2, conformal=True,
+                   cached=True):
+    if cached:
+        if conformal:
+            with open('processed_data/eeg_conformal.pkl', 'rb') as f:
+                train_dataset, calibration_dataset, test_dataset = \
+                    pickle.load(f)
+        else:
+            with open('processed_data/eeg_raw.pkl', 'rb') as f:
+                train_dataset, calibration_dataset, test_dataset = \
+                    pickle.load(f)
     else:
-        train_dataset = X_train_scaled, Y_train
-        calibration_dataset = None
-        test_dataset = X_test_scaled, Y_test
+        X_train, Y_train = downsample_sequences(get_raw_eeg_data('train'),
+                                                length,
+                                                horizon)
+        X_test, Y_test = downsample_sequences(get_raw_eeg_data('test'), length,
+                                              horizon)
 
-    with open('processed_data/eeg_test.pkl', 'wb') as f:
-        pickle.dump((X_test, Y_test), f, protocol=pickle.HIGHEST_PROTOCOL)
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+
+        if conformal:
+            calibration_idx = np.random.RandomState(seed=0) \
+                .choice(len(X_train),
+                        replace=False,
+                        size=int(calibrate * len(X_train)))
+            train_idx = np.setdiff1d(range(len(X_train)), calibration_idx)
+
+            train_dataset = EEGDataset(
+                torch.FloatTensor(X_train_scaled[train_idx]).reshape(-1, length,
+                                                                     1),
+                torch.FloatTensor(Y_train[train_idx]).reshape(-1, horizon, 1),
+                torch.ones(len(train_idx), dtype=torch.int) * length)
+
+            calibration_dataset = EEGDataset(
+                torch.FloatTensor(
+                    X_train_scaled[calibration_idx]).reshape(-1, length, 1),
+                torch.FloatTensor(
+                    Y_train[calibration_idx]).reshape(-1, horizon, 1),
+                torch.ones(len(calibration_idx)) * length)
+
+            test_dataset = EEGDataset(
+                torch.FloatTensor(X_test_scaled).reshape(-1, length, 1),
+                torch.FloatTensor(Y_test).reshape(-1, horizon, 1),
+                torch.ones(len(X_test_scaled), dtype=torch.int) * length)
+
+            with open('processed_data/eeg_conformal.pkl', 'wb') as f:
+                pickle.dump((train_dataset, calibration_dataset, test_dataset),
+                            f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+
+        else:
+            train_dataset = X_train_scaled, Y_train
+            calibration_dataset = None
+            test_dataset = X_test_scaled, Y_test
+
+            with open('processed_data/eeg_raw.pkl', 'wb') as f:
+                pickle.dump((train_dataset, calibration_dataset, test_dataset),
+                            f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+
+        with open('processed_data/eeg_test_vis.pkl', 'wb') as f:
+            pickle.dump((X_test, Y_test), f, protocol=pickle.HIGHEST_PROTOCOL)
 
     return train_dataset, calibration_dataset, test_dataset
