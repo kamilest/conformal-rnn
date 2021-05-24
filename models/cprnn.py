@@ -179,3 +179,22 @@ class CPRNN(torch.nn.Module):
         intervals = torch.cat(intervals)
 
         return coverages, intervals
+
+    def get_point_predictions_and_errors(self, test_dataset):
+        self.eval()
+
+        point_predictions = []
+        errors = []
+        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
+
+        for sequences, targets, lengths in test_loader:
+            batch_intervals, _ = self.predict(sequences)
+            point_prediction = self(sequences)
+            point_predictions.append(point_prediction)
+            errors.append(torch.nn.functional.mse_loss(point_predictions,
+                                                       targets))
+
+        point_predictions = torch.cat(point_predictions)
+        errors = torch.cat(errors)
+
+        return point_predictions, errors
