@@ -98,3 +98,11 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
             baseline_results[baseline] = results
 
     return baseline_results
+
+
+def run_eeg_experiments(retrain=False):
+    return run_medical_experiments(dataset='eeg', retrain=retrain)
+
+
+def run_mimic_experiments(retrain=False):
+    return run_medical_experiments(dataset='mimic', retrain=retrain)
