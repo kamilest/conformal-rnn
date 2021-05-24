@@ -9,8 +9,6 @@ from sklearn.preprocessing import StandardScaler
 
 
 class MIMICDataset(torch.utils.data.Dataset):
-    """Synthetic autoregressive forecast dataset."""
-
     def __init__(self, X, Y, sequence_lengths):
         super(MIMICDataset, self).__init__()
         self.X = X
