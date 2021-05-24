@@ -44,14 +44,11 @@ def process_mimic_data(horizon=2, feature='wbchigh'):
     Y = MIMIC_data["longitudinal"][:, :, idx]  # 'wbchigh'
     L = MIMIC_data['trajectory_lengths']
 
-    scaler = StandardScaler()
-    Y_scaled = scaler.fit_transform(Y)
-
     X_ = []
     Y_ = []
     L_ = []
     for k in np.where(L > 4)[0]:
-        X_.append(Y_scaled[k, :L[k] - horizon])
+        X_.append(Y[k, :L[k] - horizon])
         Y_.append(Y[k, L[k] - horizon:L[k]])
         L_.append(L[k])
 
@@ -81,6 +78,8 @@ def get_mimic_splits(n_train=2000, n_calibration=1823, n_test=500,
     X_, Y_, L = process_mimic_data(feature=feature, horizon=horizon)
     assert n_train + n_calibration + n_test == len(X_)
 
+    # TODO scaling
+
     if conformal:
         train_dataset = get_mimic_dataset(X_, Y_, L, train_idx)
         calibration_dataset = get_mimic_dataset(X_, Y_, L, calibration_idx)
@@ -91,5 +90,9 @@ def get_mimic_splits(n_train=2000, n_calibration=1823, n_test=500,
                         [Y_[i] for i in train_calibration_idx],
         calibration_dataset = None
         test_dataset = [X_[i] for i in test_idx], [Y_[i] for i in test_idx]
+
+    # TODO save test dataset for visualisation
+    # with open('processed_data/mimic_test.pkl', 'wb') as f:
+    #     pickle.dump((X_test, Y_test), f, protocol=pickle.HIGHEST_PROTOCOL)
 
     return train_dataset, calibration_dataset, test_dataset
