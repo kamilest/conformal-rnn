@@ -68,7 +68,7 @@ def get_raw_eeg_data(split='train', include_alcoholic_class=False,
     return dataset
 
 
-def resample_split(raw_data, length, horizon):
+def downsample_sequences(raw_data, length, horizon):
     raw_data_resampled = resample(raw_data, length + horizon, axis=1)
 
     X = raw_data_resampled[:, :-horizon]
@@ -77,10 +77,10 @@ def resample_split(raw_data, length, horizon):
 
 
 def get_eeg_splits(length=40, horizon=10, calibrate=0.2, conformal=True):
-    X_train, Y_train = resample_split(get_raw_eeg_data('train'), length,
-                                      horizon)
-    X_test, Y_test = resample_split(get_raw_eeg_data('test'), length,
-                                    horizon)
+    X_train, Y_train = downsample_sequences(get_raw_eeg_data('train'), length,
+                                            horizon)
+    X_test, Y_test = downsample_sequences(get_raw_eeg_data('test'), length,
+                                          horizon)
 
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
