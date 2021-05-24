@@ -87,8 +87,10 @@ def get_eeg_splits(length=40, horizon=10, calibrate=0.2, conformal=True):
     X_test_scaled = scaler.transform(X_test)
 
     if conformal:
-        calibration_idx = np.random.choice(len(X_train), replace=False,
-                                           size=int(calibrate * len(X_train)))
+        calibration_idx = np.random.RandomState(seed=0)\
+            .choice(len(X_train),
+                    replace=False,
+                    size=int(calibrate * len(X_train)))
         train_idx = np.setdiff1d(range(len(X_train)), calibration_idx)
 
         train_dataset = EEGDataset(
@@ -97,7 +99,8 @@ def get_eeg_splits(length=40, horizon=10, calibrate=0.2, conformal=True):
             torch.ones(len(train_idx), dtype=torch.int) * length)
 
         calibration_dataset = EEGDataset(
-            torch.FloatTensor(X_train_scaled[calibration_idx]).reshape(-1, length, 1),
+            torch.FloatTensor(
+                X_train_scaled[calibration_idx]).reshape(-1, length, 1),
             torch.FloatTensor(Y_train[calibration_idx]).reshape(-1, horizon, 1),
             torch.ones(len(calibration_idx)) * length)
 
@@ -110,5 +113,8 @@ def get_eeg_splits(length=40, horizon=10, calibrate=0.2, conformal=True):
         train_dataset = X_train_scaled, Y_train
         calibration_dataset = None
         test_dataset = X_test_scaled, Y_test
+
+    with open('processed_data/eeg_test.pkl', 'wb') as f:
+        pickle.dump((X_test, Y_test), f, protocol=pickle.HIGHEST_PROTOCOL)
 
     return train_dataset, calibration_dataset, test_dataset
