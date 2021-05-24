@@ -29,10 +29,10 @@ def coverage(intervals, target, coverage_mode='joint'):
         return torch.all(horizon_coverages, dim=1)
 
 
-class ConformalForecaster(torch.nn.Module):
+class CPRNN(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  error_rate=0.05, **kwargs):
-        super(ConformalForecaster, self).__init__()
+        super(CPRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
 

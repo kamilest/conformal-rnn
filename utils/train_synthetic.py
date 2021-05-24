@@ -1,6 +1,6 @@
 import torch
 
-from models.conformal import ConformalForecaster
+from models.conformal import CPRNN
 from utils.make_data import generate_autoregressive_forecast_dataset
 
 
@@ -69,8 +69,8 @@ def train_conformal_forecaster(n_train_samples=1000,
         noise_profile=noise_profile,
         dynamic_sequence_lengths=dynamic_sequence_lengths)
 
-    model = ConformalForecaster(embedding_size=embedding_size, horizon=horizon,
-                                error_rate=1 - coverage)
+    model = CPRNN(embedding_size=embedding_size, horizon=horizon,
+                  error_rate=1 - coverage)
     model.fit(train_dataset, calibration_dataset, epochs=epochs, lr=lr,
               batch_size=batch_size)
 

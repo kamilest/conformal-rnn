@@ -2,7 +2,7 @@ import pickle
 
 import torch
 
-from models.conformal import ConformalForecaster
+from models.conformal import CPRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from utils.data_processing_mimic import get_mimic_splits
@@ -16,7 +16,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                             dataset='mimic', horizon=None):
     if baselines is None:
         baselines = ["CPRNN", "QRNN", "DPRNN"]
-    models = {"CPRNN": ConformalForecaster, "DPRNN": DPRNN, "QRNN": QRNN}
+    models = {"CPRNN": CPRNN, "DPRNN": DPRNN, "QRNN": QRNN}
 
     if horizon is None:
         horizon = 2 if dataset == 'mimic' else 10
@@ -42,7 +42,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
             print('Training {}'.format(baseline))
             if baseline == 'CPRNN':
                 params['epochs'] = 1000 if dataset == 'mimic' else 100
-                model = ConformalForecaster(
+                model = CPRNN(
                     embedding_size=params['embedding_size'],
                     horizon=horizon,
                     error_rate=1 - params['coverage'])
