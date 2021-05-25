@@ -186,11 +186,13 @@ class CPRNN(torch.nn.Module):
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
 
         for sequences, targets, lengths in test_loader:
+            point_prediction, _ = self(sequences)
             batch_intervals, _ = self.predict(sequences)
-            point_prediction = self(sequences)
             point_predictions.append(point_prediction)
-            errors.append(torch.nn.functional.mse_loss(point_predictions,
-                                                       targets))
+            errors.append(torch.nn.functional.l1_loss(point_prediction,
+                                                      targets,
+                                                      reduction='none').squeeze())
+
 
         point_predictions = torch.cat(point_predictions)
         errors = torch.cat(errors)
