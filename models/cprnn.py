@@ -7,7 +7,7 @@ def nonconformity(output, target):
     return torch.nn.functional.l1_loss(output, target, reduction='none')
 
 
-def coverage(intervals, target, coverage_mode='joint'):
+def coverage(intervals, target):
     """ Determines whether intervals coverage the target prediction.
 
     Depending on the coverage_mode (either 'joint' or 'independent), will return
@@ -21,12 +21,8 @@ def coverage(intervals, target, coverage_mode='joint'):
     # [batch, horizon, n_outputs]
     horizon_coverages = torch.logical_and(target >= lower, target <= upper)
 
-    if coverage_mode == 'independent':
-        # [batch, horizon, n_outputs]
-        return horizon_coverages
-    else:  # joint coverage
-        # [batch, n_outputs]
-        return torch.all(horizon_coverages, dim=1)
+    # [batch, horizon, n_outputs], [batch, n_outputs]
+    return horizon_coverages, torch.all(horizon_coverages, dim=1)
 
 
 class CPRNN(torch.nn.Module):
@@ -160,25 +156,27 @@ class CPRNN(torch.nn.Module):
         # [batch_size, 2, horizon, n_outputs]
         return torch.stack((lower, upper), dim=1), hidden
 
-    def evaluate_coverage(self, test_dataset, coverage_mode='joint'):
+    def evaluate_coverage(self, test_dataset):
         self.eval()
 
-        coverages, intervals = [], []
+        independent_coverages, joint_coverages, intervals = [], [], []
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
 
         for sequences, targets, lengths in test_loader:
             batch_intervals, _ = self.predict(sequences)
             intervals.append(batch_intervals)
-            coverages.append(coverage(batch_intervals, targets,
-                                      coverage_mode=coverage_mode))
+            independent_coverage, joint_coverage = coverage(batch_intervals, targets)
+            independent_coverages.append(independent_coverage)
+            joint_coverages.append(joint_coverage)
 
         # [n_samples, (1 | horizon), n_outputs] containing booleans
-        coverages = torch.cat(coverages)
+        independent_coverages = torch.cat(independent_coverages)
+        joint_coverages = torch.cat(joint_coverages)
 
         # [n_samples, 2, horizon, n_outputs] containing lower and upper bounds
         intervals = torch.cat(intervals)
 
-        return coverages, intervals
+        return independent_coverages, joint_coverages, intervals
 
     def get_point_predictions_and_errors(self, test_dataset):
         self.eval()
