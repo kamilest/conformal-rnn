@@ -108,8 +108,7 @@ class QRNN(nn.Module):
                 loss.backward()  # backpropagation, compute gradients
                 optimizer.step()  # apply gradients
 
-                if step % 50 == 0:
-                    print('Epoch: ', epoch, '| train loss: %.4f' % loss.data)
+            print('Epoch: ', epoch, '| train loss: %.4f' % loss.data)
 
     def predict(self, X):
         if type(X) is list:
