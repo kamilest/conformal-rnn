@@ -5,8 +5,8 @@ import torch
 from models.cprnn import CPRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
-from utils.data_processing_mimic import get_mimic_splits
 from utils.data_processing_eeg import get_eeg_splits
+from utils.data_processing_mimic import get_mimic_splits
 from utils.performance import evaluate_performance
 
 torch.manual_seed(1)
@@ -57,20 +57,31 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                 model.fit(train_dataset, calibration_dataset,
                           epochs=params['epochs'], lr=params['lr'],
                           batch_size=params['batch_size'])
-                coverages, intervals = model.evaluate_coverage(test_dataset)
-                mean_coverage = torch.mean(coverages.float(), dim=0).item()
-                interval_widths = \
-                    (intervals[:, 1] - intervals[:, 0]) \
-                        .squeeze().mean(dim=0).tolist()
+                independent_coverages, joint_coverages, intervals = \
+                    model.evaluate_coverage(
+                        test_dataset)
+                mean_independent_coverage = torch.mean(
+                    independent_coverages.float(),
+                                                       dim=0)
+                mean_joint_coverage = torch.mean(joint_coverages.float(),
+                                                 dim=0).item()
+                interval_widths = (intervals[:, 1] - intervals[:, 0]).squeeze()
                 point_predictions, errors = \
                     model.get_point_predictions_and_errors(test_dataset)
                 results = {'Point predictions': point_predictions,
                            'Errors': errors,
-                           'Coverage indicators': coverages,
+                           'Independent coverage indicators':
+                               independent_coverages.squeeze(),
+                           'Joint coverage indicators':
+                               joint_coverages.squeeze(),
                            'Upper limit': intervals[:, 1],
                            'Lower limit': intervals[:, 0],
-                           'Coverage': mean_coverage,
-                           'Confidence intervals': interval_widths}
+                           'Mean independent coverage':
+                               mean_independent_coverage.squeeze(),
+                           'Mean joint coverage': mean_joint_coverage,
+                           'Confidence interval widths': interval_widths,
+                           'Mean confidence interval widths':
+                               interval_widths.mean(dim=0)}
 
             else:
                 params['epochs'] = 10

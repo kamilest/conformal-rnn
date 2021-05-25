@@ -6,7 +6,6 @@
 # ---------------------------------------------------------
 
 from matplotlib import pyplot as plt
-from sklearn.metrics import roc_auc_score
 
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
@@ -58,44 +57,28 @@ def evaluate_performance(model, X_test, Y_test, coverage=.9, error_threshold=1):
         y_u_approx = [x.reshape(-1, 1) for x in y_u_approx]
         y_l_approx = [x.reshape(-1, 1) for x in y_l_approx]
 
+    results = {}
 
-    results = dict({"Point predictions": None,
-                    "Confidence intervals": None,
-                    "Errors": None,
-                    "Upper limit": None,
-                    "Lower limit": None,
-                    "Coverage indicators": None,
-                    "Coverage": None,
-                    "AUC-ROC": None})
+    upper = np.array(y_u_approx).squeeze()
+    lower = np.array(y_l_approx).squeeze()
+    pred = np.array(y_pred).squeeze()
+    target = np.array(Y_test)
 
-    results["Point predictions"] = y_pred
-    results["Upper limit"] = y_u_approx
-    results["Lower limit"] = y_l_approx
-    results["Confidence intervals"] = [y_u_approx[k] - y_l_approx[k] for k in
-                                       range(len(y_u_approx))]
-    results["Errors"] = [np.abs(Y_test[k] - y_pred[k]) for k in
-                         range(len(y_u_approx))]
-    results["Coverage indicators"] = [
-        ((y_u_approx[k] >= Y_test[k]) * (y_l_approx[k] <= Y_test[k])) * 1 for k
-        in range(len(y_u_approx))]
-    results["Coverage"] = np.mean(
-        np.concatenate(results["Coverage indicators"]))
+    results["Point predictions"] = np.array(y_pred)
+    results["Upper limit"] = np.array(y_u_approx)
+    results["Lower limit"] = np.array(y_l_approx)
+    results["Confidence interval widths"] = upper - lower
+    results["Mean confidence interval widths"] = np.mean(upper - lower, axis=0)
+    results["Errors"] = np.abs(target - pred)
 
-    if error_threshold == "Auto":
+    independent_coverage = np.logical_and(upper >= target, lower <= target)
 
-        results["AUC-ROC"] = roc_auc_score((np.concatenate(
-            results["Errors"]) > np.median(
-            np.concatenate(results["Errors"]))) * 1,
-                                           np.concatenate(
-                                               results["Confidence intervals"]))
-
-    else:
-
-        results["AUC-ROC"] = roc_auc_score(
-            (np.concatenate(results["Errors"]) > error_threshold) * 1,
-            np.concatenate(results["Confidence intervals"]))
-    results["CI length"] = np.mean(
-        np.concatenate(results["Confidence intervals"]))
+    results["Independent coverage indicators"] = independent_coverage
+    results["Joint coverage indicators"] = np.all(independent_coverage, axis=1)
+    results["Mean independent coverage"] = np.mean(independent_coverage,
+                                                   axis=0)
+    results["Mean joint coverage"] = np.mean(
+        results["Joint coverage indicators"])
 
     return results
 
@@ -123,7 +106,7 @@ def collect_synthetic_results(noise_vars, params, coverage=0.9, seq_len=5,
         print("Training model " + model_names[
             u] + " with aleatoric noise variance %.4f and %d training "
                  "sequences" % (
-              noise_vars, n_train_seq))
+                  noise_vars, n_train_seq))
 
         RNN_model.fit(X, Y)
 
