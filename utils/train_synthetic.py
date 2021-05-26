@@ -3,7 +3,10 @@ import pickle
 import torch
 
 from models.cprnn import CPRNN
+from models.rnn import RNN
+from models.uncertainty import RNN_uncertainty_wrapper
 from utils.data_processing_synthetic import get_synthetic_splits
+from utils.performance import evaluate_performance
 
 
 def train_conformal_forecaster(noise_mode='time-dependent',
@@ -64,6 +67,58 @@ def train_conformal_forecaster(noise_mode='time-dependent',
             pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
     else:
         with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
+                  'rb') as f:
+            results = pickle.load(f)
+
+    return results
+
+
+def train_blockwise_forecaster(noise_mode='time-dependent',
+                               epochs=10,  # LSTM parameters
+                               batch_size=150,
+                               embedding_size=20,
+                               coverage=0.9,
+                               lr=0.01,
+                               retrain=False):
+
+    if retrain:
+        params = {'epochs': epochs,
+                  'batch_size': batch_size,
+                  'embedding_size': embedding_size,
+                  'coverage': coverage,
+                  'lr': lr,
+                  'n_steps': 1000,
+                  'input_size': 1}
+
+        if noise_mode == 'periodic':
+            length = 20
+            horizon = 10
+        else:
+            length = 10
+            horizon = 5
+
+        params['max_steps'] = length
+        params['output_size'] = horizon
+
+        datasets = get_synthetic_splits(conformal=False, horizon=horizon)
+        results = []
+        for dataset in datasets:
+            train_dataset, _, test_dataset = dataset
+
+            model = RNN(**params)
+            model.fit(train_dataset[0], train_dataset[1])
+            model_ = RNN_uncertainty_wrapper(model)
+            result = evaluate_performance(model_, test_dataset[0],
+                                           test_dataset[1],
+                                           coverage=params['coverage'],
+                                           error_threshold="Auto")
+
+            results.append(result)
+        with open('saved_results/{}_{}.pkl'.format(noise_mode, 'BJRNN'),
+                  'wb') as f:
+            pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
+    else:
+        with open('saved_results/{}_{}.pkl'.format(noise_mode, 'BJRNN'),
                   'rb') as f:
             results = pickle.load(f)
 
