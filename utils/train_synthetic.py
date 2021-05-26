@@ -114,9 +114,11 @@ def train_blockwise_forecaster(noise_mode='time-dependent',
                                            error_threshold="Auto")
 
             results.append(result)
-        with open('saved_results/{}_{}.pkl'.format(noise_mode, 'BJRNN'),
-                  'wb') as f:
-            pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
+            del model_
+
+            with open('saved_results/{}_{}.pkl'.format(noise_mode, 'BJRNN'),
+                      'wb') as f:
+                pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
     else:
         with open('saved_results/{}_{}.pkl'.format(noise_mode, 'BJRNN'),
                   'rb') as f:
