@@ -188,7 +188,7 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
 
     if cached:
         datasets = []
-        for i in range(1, 6):
+        for i in ([2, 10] if noise_mode == 'periodic' else range(1, 6)):
             if conformal:
                 with open('processed_data/synthetic_{}_conformal_{}.pkl'.format(
                         noise_mode, i),
@@ -207,10 +207,11 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
         for i in ([2, 10] if noise_mode == 'periodic' else range(1, 6)):
             if noise_mode == 'time-dependent':
                 noise_profile = [0.1 * i * k for k in range(length + horizon)]
-            else:
+            elif noise_mode == 'static':
                 noise_profile = [0.1 * i for _ in range(length + horizon)]
 
-            if noise_mode == 'periodic':
+            else:  # noise_mode == 'periodic':
+                noise_profile = [0.5 for _ in range(length + horizon)]
                 length = 20
                 horizon = 10
                 periodicity = i
