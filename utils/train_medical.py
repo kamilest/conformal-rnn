@@ -8,14 +8,14 @@ from models.qrnn import QRNN
 from utils.data_processing_covid import get_covid_splits
 from utils.data_processing_eeg import get_eeg_splits
 from utils.data_processing_mimic import get_mimic_splits
-
 from utils.performance import evaluate_performance
 
 torch.manual_seed(1)
 
 
 def run_medical_experiments(params=None, baselines=None, retrain=False,
-                            dataset='mimic', length=None, horizon=None):
+                            dataset='mimic', length=None, horizon=None,
+                            correct_conformal=True):
     if baselines is None:
         baselines = ["CPRNN", "QRNN", "DPRNN"]
     models = {"CPRNN": CPRNN, "DPRNN": DPRNN, "QRNN": QRNN}
@@ -70,15 +70,16 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                           batch_size=params['batch_size'])
                 independent_coverages, joint_coverages, intervals = \
                     model.evaluate_coverage(
-                        test_dataset)
+                        test_dataset, corrected=correct_conformal)
                 mean_independent_coverage = torch.mean(
                     independent_coverages.float(),
-                                                       dim=0)
+                    dim=0)
                 mean_joint_coverage = torch.mean(joint_coverages.float(),
                                                  dim=0).item()
                 interval_widths = (intervals[:, 1] - intervals[:, 0]).squeeze()
                 point_predictions, errors = \
-                    model.get_point_predictions_and_errors(test_dataset)
+                    model.get_point_predictions_and_errors(test_dataset,
+                                                           corrected=correct_conformal)
                 results = {'Point predictions': point_predictions,
                            'Errors': errors,
                            'Independent coverage indicators':
@@ -108,13 +109,18 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                                                error_threshold="Auto")
 
             baseline_results[baseline] = results
-            with open('saved_results/{}_{}.pkl'.format(dataset, baseline),
+            corr = '_uncorrected' if not correct_conformal else ''
+            with open('saved_results/{}_{}{}.pkl'.format(dataset,
+                                                         baseline, corr),
                       'wb') as f:
                 pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     else:
         for baseline in baselines:
-            with open('saved_results/{}_{}.pkl'.format(dataset, baseline),
+            corr = '_uncorrected' if (baseline == 'CPRNN' and not
+            correct_conformal) else ''
+            with open('saved_results/{}_{}{}.pkl'.format(dataset, baseline,
+                                                         corr),
                       'rb') as f:
                 results = pickle.load(f)
             baseline_results[baseline] = results
