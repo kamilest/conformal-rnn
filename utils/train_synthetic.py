@@ -12,12 +12,9 @@ def train_conformal_forecaster(noise_mode='time-dependent',
                                embedding_size=20,
                                coverage=0.9,
                                lr=0.01,
-                               cached=True):
-    if cached:
-        with open('processed_data/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
-                  'rb') as f:
-            results = pickle.load(f)
-    else:
+                               retrain=False):
+
+    if retrain:
         if noise_mode == 'periodic':
             horizon = 10
         else:
@@ -65,5 +62,9 @@ def train_conformal_forecaster(noise_mode='time-dependent',
             with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
                       'wb') as f:
                 pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
+    else:
+        with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
+                  'rb') as f:
+            results = pickle.load(f)
 
     return results
