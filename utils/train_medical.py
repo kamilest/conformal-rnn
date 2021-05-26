@@ -18,8 +18,17 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
         baselines = ["CPRNN", "QRNN", "DPRNN"]
     models = {"CPRNN": CPRNN, "DPRNN": DPRNN, "QRNN": QRNN}
 
+    horizons = {'mimic': 2,
+                'eeg': 10,
+                'covid': 50}
     if horizon is None:
-        horizon = 2 if dataset == 'mimic' else 10
+        horizon = horizons[dataset]
+
+    lengths = {'mimic': 49 - horizon,
+               'eeg': 40,
+               'covid': 100}
+    if length is None:
+        length = lengths[dataset]
 
     split_fn = get_mimic_splits if dataset == 'mimic' else get_eeg_splits
 
@@ -34,11 +43,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
 
     baseline_results = dict({"CPRNN": {}, "QRNN": {}, "DPRNN": {}})
 
-    if length is None:
-        params['max_steps'] = (49 - horizon) if dataset == 'mimic' else 40
-    else:
-        params['max_steps'] = length
-
+    params['max_steps'] = length
     params['output_size'] = horizon
 
     if retrain:
