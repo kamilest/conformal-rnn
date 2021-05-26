@@ -139,12 +139,12 @@ class CPRNN(torch.nn.Module):
         # Collect calibration scores
         self.calibrate(calibration_dataset, n_train=len(train_dataset))
 
-    def predict(self, x, state=None, coverage_mode='joint'):
+    def predict(self, x, state=None, corrected=True):
         """Forecasts the time series with conformal uncertainty intervals."""
         # TODO +/- nonconformity will not return *adaptive* interval widths.
         out, hidden = self(x, state)
 
-        if coverage_mode == 'independent':
+        if not corrected:
             # [batch_size, horizon, n_outputs]
             lower = out - self.critical_calibration_scores
             upper = out + self.critical_calibration_scores
@@ -156,14 +156,14 @@ class CPRNN(torch.nn.Module):
         # [batch_size, 2, horizon, n_outputs]
         return torch.stack((lower, upper), dim=1), hidden
 
-    def evaluate_coverage(self, test_dataset):
+    def evaluate_coverage(self, test_dataset, corrected=True):
         self.eval()
 
         independent_coverages, joint_coverages, intervals = [], [], []
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
 
         for sequences, targets, lengths in test_loader:
-            batch_intervals, _ = self.predict(sequences)
+            batch_intervals, _ = self.predict(sequences, corrected=corrected)
             intervals.append(batch_intervals)
             independent_coverage, joint_coverage = coverage(batch_intervals, targets)
             independent_coverages.append(independent_coverage)
@@ -178,7 +178,7 @@ class CPRNN(torch.nn.Module):
 
         return independent_coverages, joint_coverages, intervals
 
-    def get_point_predictions_and_errors(self, test_dataset):
+    def get_point_predictions_and_errors(self, test_dataset, corrected=True):
         self.eval()
 
         point_predictions = []
@@ -187,7 +187,7 @@ class CPRNN(torch.nn.Module):
 
         for sequences, targets, lengths in test_loader:
             point_prediction, _ = self(sequences)
-            batch_intervals, _ = self.predict(sequences)
+            batch_intervals, _ = self.predict(sequences, corrected=corrected)
             point_predictions.append(point_prediction)
             errors.append(torch.nn.functional.l1_loss(point_prediction,
                                                       targets,
