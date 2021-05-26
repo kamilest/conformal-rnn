@@ -59,9 +59,9 @@ def train_conformal_forecaster(noise_mode='time-dependent',
 
             results.append(result)
 
-            with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
-                      'wb') as f:
-                pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
+        with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
+                  'wb') as f:
+            pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
     else:
         with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
                   'rb') as f:
