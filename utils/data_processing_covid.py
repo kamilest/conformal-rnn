@@ -33,16 +33,11 @@ def get_raw_covid_data(cached=True):
             dataset.append(df.loc[df['areaCode'] == area_code]
                            .sort_values('date')[
                                'newCasesByPublishDate'].to_numpy()[-250:-100])
+        dataset = np.array(dataset)
         with open('data/covid.pkl', 'wb') as f:
             pickle.dump(dataset, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     return dataset
-
-
-def split_covid_sequences(raw_data, length, horizon):
-    X = raw_data[:, :length]
-    Y = raw_data[:, length:length + horizon]
-    return X, Y
 
 
 def get_covid_splits(length=100, horizon=50, conformal=True,
