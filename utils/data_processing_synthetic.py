@@ -1,6 +1,8 @@
 # Copyright (c) 2020, Ahmed M. Alaa
 # Licensed under the BSD 3-clause license (see LICENSE.txt)
 
+import pickle
+
 import numpy as np
 import torch
 
@@ -107,9 +109,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              amplitude=1,
                                              harmonics=1,
                                              dynamic_sequence_lengths=False,
-                                             horizon=10,
-                                             return_raw=False):
-
+                                             horizon=10):
     seq_len = max(seq_len, horizon)
 
     if noise_profile is None:
@@ -150,7 +150,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         periodic = [seasonal(sl, periodicity, amplitude, harmonics) for sl in
                     sequence_lengths]
     else:
-        periodic = np.array([np.zeros(sl) for sl in sequence_lengths])\
+        periodic = np.array([np.zeros(sl) for sl in sequence_lengths]) \
             .reshape(-1, 1)
 
     X_full = [torch.tensor(i + j + k) for i, j, k in zip(ar, noise, periodic)]
@@ -171,15 +171,148 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         # information and are excluded.
         # assert np.min(sequence_lengths) > horizon
 
-    if return_raw:
-        return X, Y
+    return X, Y, sequence_lengths
 
-    # X: [n_samples, max_seq_len, n_features]
-    X_tensor = torch.nn.utils.rnn.pad_sequence(X, batch_first=True).float()
 
-    # Y: [n_samples, horizon, n_features]
-    Y_tensor = torch.nn.utils.rnn.pad_sequence(Y, batch_first=True).float()
+def get_synthetic_splits(length=10, horizon=5, conformal=True,
+                         n_train=1000, n_calibration=1000, n_test=500,
+                         cached=True,
+                         mean=1,
+                         variance=2,
+                         memory_factor=0.9,
+                         noise_mode='time-dependent'):
+    # Time series parameters
+    periodicity = None
+    amplitude = 1
+    dynamic_sequence_lengths = False
 
-    sequence_lengths = sequence_lengths - horizon
+    if cached:
+        datasets = []
+        for i in range(1, 6):
+            if conformal:
+                with open('processed_data/synthetic_{}_conformal_{}.pkl'.format(
+                        noise_mode, i),
+                        'rb') as f:
+                    train_dataset, calibration_dataset, test_dataset = \
+                        pickle.load(f)
+            else:
+                with open('processed_data/synthetic_{}_raw_{}.pkl'.format(
+                        noise_mode, i),
+                          'rb') as f:
+                    train_dataset, calibration_dataset, test_dataset = \
+                        pickle.load(f)
+            datasets.append((train_dataset, calibration_dataset, test_dataset))
+    else:
+        datasets = []
+        for i in ([2, 10] if noise_mode == 'periodic' else range(1, 6)):
+            if noise_mode == 'time-dependent':
+                noise_profile = [0.1 * i * k for k in range(length + horizon)]
+            else:
+                noise_profile = [0.1 * i for _ in range(length + horizon)]
 
-    return AutoregressiveForecastDataset(X_tensor, Y_tensor, sequence_lengths)
+            if noise_mode == 'periodic':
+                periodicity = i
+                amplitude = 5
+
+            X_train, Y_train, sequence_lengths_train = \
+                generate_autoregressive_forecast_dataset(
+                    n_samples=n_train,
+                    seq_len=length,
+                    horizon=horizon,
+                    periodicity=periodicity,
+                    amplitude=amplitude,
+                    X_mean=mean,
+                    X_variance=variance,
+                    memory_factor=memory_factor,
+                    noise_mode=noise_mode,
+                    noise_profile=noise_profile,
+                    dynamic_sequence_lengths=dynamic_sequence_lengths)
+
+            # X: [n_samples, max_seq_len, n_features]
+            X_train_tensor = torch.nn.utils.rnn.pad_sequence(X_train,
+                                                             batch_first=True).float()
+
+            # Y: [n_samples, horizon, n_features]
+            Y_train_tensor = torch.nn.utils.rnn.pad_sequence(Y_train,
+                                                             batch_first=True).float()
+
+            sequence_lengths_train = sequence_lengths_train - horizon
+            train_dataset = AutoregressiveForecastDataset(X_train_tensor,
+                                                          Y_train_tensor,
+                                                          sequence_lengths_train)
+
+            X_calibration, Y_calibration, sequence_lengths_calibration = \
+                generate_autoregressive_forecast_dataset(
+                    n_samples=n_calibration,
+                    seq_len=length,
+                    horizon=horizon,
+                    periodicity=periodicity,
+                    amplitude=amplitude,
+                    X_mean=mean,
+                    X_variance=variance,
+                    memory_factor=memory_factor,
+                    noise_mode=noise_mode,
+                    noise_profile=noise_profile,
+                    dynamic_sequence_lengths=dynamic_sequence_lengths)
+
+            # X: [n_samples, max_seq_len, n_features]
+            X_calibration_tensor = torch.nn.utils.rnn.pad_sequence(X_calibration,
+                                                                   batch_first=True).float()
+
+            # Y: [n_samples, horizon, n_features]
+            Y_calibration_tensor = torch.nn.utils.rnn.pad_sequence(Y_calibration,
+                                                                   batch_first=True).float()
+
+            sequence_lengths_calibration = sequence_lengths_calibration - horizon
+            calibration_dataset = AutoregressiveForecastDataset(
+                X_calibration_tensor,
+                Y_calibration_tensor,
+                sequence_lengths_calibration)
+
+            X_test, Y_test, sequence_lengths_test = \
+                generate_autoregressive_forecast_dataset(
+                    n_samples=n_test,
+                    seq_len=length,
+                    horizon=horizon,
+                    periodicity=periodicity,
+                    amplitude=amplitude,
+                    X_mean=mean,
+                    X_variance=variance,
+                    memory_factor=memory_factor,
+                    noise_mode=noise_mode,
+                    noise_profile=noise_profile,
+                    dynamic_sequence_lengths=dynamic_sequence_lengths)
+
+            # X: [n_samples, max_seq_len, n_features]
+            X_test_tensor = torch.nn.utils.rnn.pad_sequence(X_test,
+                                                            batch_first=True).float()
+
+            # Y: [n_samples, horizon, n_features]
+            Y_test_tensor = torch.nn.utils.rnn.pad_sequence(Y_test,
+                                                            batch_first=True).float()
+
+            sequence_lengths_test = sequence_lengths_train - horizon
+            test_dataset = AutoregressiveForecastDataset(X_test_tensor,
+                                                         Y_test_tensor,
+                                                         sequence_lengths_test)
+
+            with open('processed_data/synthetic_{}_conformal_{}.pkl'.format(
+                    noise_mode, i),
+                      'wb') as f:
+                pickle.dump((train_dataset, calibration_dataset, test_dataset),
+                            f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+
+            with open('processed_data/synthetic_{}_raw_{}.pkl'.format(
+                    noise_mode, i),
+                      'wb') as f:
+                pickle.dump(((X_train, Y_train), None, (X_test, Y_test)),
+                            f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+
+            if conformal:
+                datasets.append((train_dataset, calibration_dataset, test_dataset))
+            else:
+                datasets.append(((X_train, Y_train), None, (X_test, Y_test)))
+
+    return datasets
