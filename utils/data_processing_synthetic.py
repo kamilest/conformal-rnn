@@ -180,15 +180,22 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
                          mean=1,
                          variance=2,
                          memory_factor=0.9,
-                         noise_mode='time-dependent'):
+                         noise_mode='long-horizon'):
     # Time series parameters
     periodicity = None
     amplitude = 1
     dynamic_sequence_lengths = False
 
+    ranges = {
+        'periodic': [2, 10],
+        'time-dependent': range(1, 6),
+        'static': range(1, 6),
+        'long-horizon': [5, 10, 20],
+    }
+
     if cached:
         datasets = []
-        for i in ([2, 10] if noise_mode == 'periodic' else range(1, 6)):
+        for i in ranges[noise_mode]:
             if conformal:
                 with open('processed_data/synthetic_{}_conformal_{}.pkl'.format(
                         noise_mode, i),
@@ -204,12 +211,13 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
             datasets.append((train_dataset, calibration_dataset, test_dataset))
     else:
         datasets = []
-        for i in ([2, 10] if noise_mode == 'periodic' else range(1, 6)):
+
+        for i in ranges[noise_mode]:
             if noise_mode == 'time-dependent':
                 noise_profile = [0.1 * i * k for k in range(length + horizon)]
-            elif noise_mode == 'static':
+            elif noise_mode == 'static' or noise_mode == 'long-horizon':
                 noise_profile = [0.1 * i for _ in range(length + horizon)]
-
+                horizon = i
             else:  # noise_mode == 'periodic':
                 noise_profile = [0.5 for _ in range(length + horizon)]
                 length = 20
