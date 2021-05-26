@@ -75,7 +75,7 @@ def train_conformal_forecaster(noise_mode='time-dependent',
 
 def train_blockwise_forecaster(noise_mode='time-dependent',
                                epochs=10,  # LSTM parameters
-                               batch_size=150,
+                               batch_size=100,
                                embedding_size=20,
                                coverage=0.9,
                                lr=0.01,
@@ -87,8 +87,9 @@ def train_blockwise_forecaster(noise_mode='time-dependent',
                   'embedding_size': embedding_size,
                   'coverage': coverage,
                   'lr': lr,
-                  'n_steps': 1000,
-                  'input_size': 1}
+                  'n_steps': 10,
+                  'input_size': 1,
+                  'mode': 'LSTM'}
 
         if noise_mode == 'periodic':
             length = 20
