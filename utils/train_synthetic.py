@@ -23,7 +23,7 @@ def train_conformal_forecaster(noise_mode='time-dependent',
         else:
             horizon = 5
 
-        horizons = [5, 10, 15]
+        horizons = [5, 10, 20]
 
         datasets = get_synthetic_splits(noise_mode=noise_mode, conformal=True)
         results = []
