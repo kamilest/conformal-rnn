@@ -5,8 +5,10 @@ import torch
 from models.cprnn import CPRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
+from utils.data_processing_covid import get_covid_splits
 from utils.data_processing_eeg import get_eeg_splits
 from utils.data_processing_mimic import get_mimic_splits
+
 from utils.performance import evaluate_performance
 
 torch.manual_seed(1)
@@ -30,7 +32,11 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
     if length is None:
         length = lengths[dataset]
 
-    split_fn = get_mimic_splits if dataset == 'mimic' else get_eeg_splits
+    split_fns = {'mimic': get_mimic_splits,
+                 'eeg': get_eeg_splits,
+                 'covid': get_covid_splits}
+
+    split_fn = split_fns[dataset]
 
     if params is None:
         params = {'epochs': 1000,
@@ -50,7 +56,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
         for baseline in baselines:
             print('Training {}'.format(baseline))
             if baseline == 'CPRNN':
-                params['epochs'] = 1000 if dataset == 'mimic' else 100
+                params['epochs'] = 100 if dataset == 'eeg' else 1000
                 model = CPRNN(
                     embedding_size=params['embedding_size'],
                     horizon=horizon,
