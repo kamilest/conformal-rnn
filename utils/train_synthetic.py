@@ -23,10 +23,15 @@ def train_conformal_forecaster(noise_mode='time-dependent',
         else:
             horizon = 5
 
+        horizons = [5, 10, 15]
+
         datasets = get_synthetic_splits(noise_mode=noise_mode, conformal=True)
         results = []
 
-        for dataset in datasets:
+        for i, dataset in enumerate(datasets):
+            if noise_mode == 'long-horizon':
+                horizon = horizons[i]
+
             train_dataset, calibration_dataset, test_dataset = dataset
 
             model = CPRNN(embedding_size=embedding_size, horizon=horizon,
