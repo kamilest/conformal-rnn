@@ -8,29 +8,21 @@ from utils.data_padding import padd_arrays, unpadd_arrays
 
 
 class RNN(nn.Module):
-    def __init__(self,
-                 mode="RNN",
-                 EPOCH=5,
-                 BATCH_SIZE=150,
-                 MAX_STEPS=50,
-                 INPUT_SIZE=30,
-                 LR=0.01,
-                 OUTPUT_SIZE=1,
-                 HIDDEN_UNITS=20,
-                 NUM_LAYERS=1,
-                 N_STEPS=50):
+    def __init__(self, mode="RNN", epochs=5, batch_size=150, max_steps=50,
+                 input_size=30, lr=0.01, output_size=1, embedding_size=20,
+                 n_layers=1, n_steps=50, **kwargs):
 
         super(RNN, self).__init__()
 
-        self.EPOCH = EPOCH
-        self.BATCH_SIZE = BATCH_SIZE
-        self.MAX_STEPS = MAX_STEPS
-        self.INPUT_SIZE = INPUT_SIZE
-        self.LR = LR
-        self.OUTPUT_SIZE = OUTPUT_SIZE
-        self.HIDDEN_UNITS = HIDDEN_UNITS
-        self.NUM_LAYERS = NUM_LAYERS
-        self.N_STEPS = N_STEPS
+        self.EPOCH = epochs
+        self.BATCH_SIZE = batch_size
+        self.MAX_STEPS = max_steps
+        self.INPUT_SIZE = input_size
+        self.LR = lr
+        self.OUTPUT_SIZE = output_size
+        self.HIDDEN_UNITS = embedding_size
+        self.NUM_LAYERS = n_layers
+        self.N_STEPS = n_steps
 
         rnn_dict = {"RNN": nn.RNN(input_size=self.INPUT_SIZE,
                                   hidden_size=self.HIDDEN_UNITS,
