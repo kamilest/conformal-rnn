@@ -211,6 +211,8 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
                 noise_profile = [0.1 * i for _ in range(length + horizon)]
 
             if noise_mode == 'periodic':
+                length = 20
+                horizon = 10
                 periodicity = i
                 amplitude = 5
 
