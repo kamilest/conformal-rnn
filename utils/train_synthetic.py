@@ -1,5 +1,7 @@
+import gc
 import pickle
 
+import numpy as np
 import torch
 
 from models.cprnn import CPRNN
@@ -19,7 +21,6 @@ def train_conformal_forecaster(noise_mode='time-dependent',
                                save_model=False,
                                save_results=True,
                                rnn_mode='LSTM'):
-
     if retrain:
         if noise_mode == 'periodic':
             horizon = 10
@@ -99,7 +100,6 @@ def train_blockwise_forecaster(noise_mode='time-dependent',
                                coverage=0.9,
                                lr=0.01,
                                retrain=False):
-
     if retrain:
         params = {'epochs': epochs,
                   'batch_size': batch_size,
@@ -129,9 +129,9 @@ def train_blockwise_forecaster(noise_mode='time-dependent',
             model.fit(train_dataset[0], train_dataset[1])
             model_ = RNN_uncertainty_wrapper(model)
             result = evaluate_performance(model_, test_dataset[0],
-                                           test_dataset[1],
-                                           coverage=params['coverage'],
-                                           error_threshold="Auto")
+                                          test_dataset[1],
+                                          coverage=params['coverage'],
+                                          error_threshold="Auto")
 
             results.append(result)
             del model_
@@ -145,3 +145,77 @@ def train_blockwise_forecaster(noise_mode='time-dependent',
             results = pickle.load(f)
 
     return results
+
+
+def train_bjrnn():
+    def get_coverage(intervals_, target, coverage_mode='joint'):
+        lower, upper = intervals_[0], intervals_[1]
+
+        horizon_coverages = np.logical_and(target >= lower, target <= upper)
+        if coverage_mode == 'independent':
+            return horizon_coverages
+        else:  # joint coverage
+            return np.all(horizon_coverages, axis=0)
+
+    params = dict({"input_size": 1,  # RNN parameters
+                   "epochs": 1000,
+                   "n_steps": 5,
+                   "batch_size": 100,
+                   "embedding_size": 20,
+                   "max_steps": 10,
+                   "output_size": 5,
+                   "coverage": 0.9,
+                   "lr": 0.01,
+                   "mode": "RNN"})
+
+    results = []
+    for i in range(1, 6):
+        with open('processed_data/synthetic_{}_raw_{}.pkl'.format(
+                'time-dependent', i),
+                'rb') as f:
+            train_dataset, calibration_dataset, test_dataset = \
+                pickle.load(f)
+        X_train, Y_train = train_dataset
+        X_test, Y_test = test_dataset
+
+        RNN_model = RNN(**params)
+        RNN_model.fit(X_train, Y_train)
+
+        RNN_model_ = RNN_uncertainty_wrapper(RNN_model)
+
+        coverages = []
+        intervals = []
+
+        for j, (x, y) in enumerate(zip(X_test, Y_test)):
+            y_pred, y_l_approx, y_u_approx = RNN_model_.predict(x)
+            interval = np.array([y_l_approx[0], y_u_approx[0]])
+            covers = get_coverage(interval, y.flatten().detach().numpy())
+            coverages.append(covers)
+            intervals.append(interval)
+            if j % 50 == 0:
+                print('Example {}'.format(j))
+
+        mean_coverage = np.mean(coverages)
+        np_intervals = np.array(intervals)
+        interval_widths = (np_intervals[:, 1] - np_intervals[:, 0]).mean(axis=0)
+
+        result = {'coverages': coverages,
+                  'intervals': intervals,
+                  'mean_coverage': mean_coverage,
+                  'interval_widths': interval_widths}
+
+        print('Model {}:\tcoverage: {}\twidths: {}'.format(i, result[
+            'mean_coverage'], result['interval_widths']))
+        results.append(result)
+        del RNN_model
+        del RNN_model_
+        gc.collect()
+
+    with open('saved_results/time-dependent_BJRNN.pkl', 'wb') as output:
+        pickle.dump(results, output, pickle.HIGHEST_PROTOCOL)
+
+    return results
+
+
+if __name__ == "__main__":
+    train_bjrnn()
