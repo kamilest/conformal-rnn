@@ -16,7 +16,7 @@ torch.manual_seed(1)
 def run_medical_experiments(params=None, baselines=None, retrain=False,
                             dataset='mimic', length=None, horizon=None,
                             correct_conformal=True, save_model=False,
-                            save_results=True):
+                            save_results=True, rnn_mode='LSTM'):
     if baselines is None:
         baselines = ["CPRNN", "QRNN", "DPRNN"]
     models = {"CPRNN": CPRNN, "DPRNN": DPRNN, "QRNN": QRNN}
@@ -61,7 +61,8 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                 model = CPRNN(
                     embedding_size=params['embedding_size'],
                     horizon=horizon,
-                    error_rate=1 - params['coverage'])
+                    error_rate=1 - params['coverage'],
+                    mode=rnn_mode)
 
                 train_dataset, calibration_dataset, test_dataset = \
                     split_fn(conformal=True, horizon=horizon)
