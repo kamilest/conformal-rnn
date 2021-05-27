@@ -219,9 +219,9 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
                 noise_profile = [0.1 * i for _ in range(length + horizon)]
             elif noise_mode == 'long-horizon':
                 noise_profile = [0.1 * k for k in range(length + horizon)]
-                mean = 3
-                variance = 5
-                horizon = i
+                mean = 1
+                variance = 1
+                horizon = 100
             else:  # noise_mode == 'periodic':
                 noise_profile = [0.5 * k for k in range(length + horizon)]
                 length = 20
