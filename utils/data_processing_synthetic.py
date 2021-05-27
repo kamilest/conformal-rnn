@@ -190,7 +190,7 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
         'periodic': [2, 10],
         'time-dependent': range(1, 6),
         'static': range(1, 6),
-        'long-horizon': [5, 10, 20],
+        'long-horizon': [100],
     }
 
     if cached:
@@ -215,8 +215,12 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
         for i in ranges[noise_mode]:
             if noise_mode == 'time-dependent':
                 noise_profile = [0.1 * i * k for k in range(length + horizon)]
-            elif noise_mode == 'static' or noise_mode == 'long-horizon':
+            elif noise_mode == 'static':
                 noise_profile = [0.1 * i for _ in range(length + horizon)]
+            elif noise_mode == 'long-horizon':
+                noise_profile = [0.1 * k for k in range(length + horizon)]
+                mean = 3
+                variance = 5
                 horizon = i
             else:  # noise_mode == 'periodic':
                 noise_profile = [0.5 * k for k in range(length + horizon)]
@@ -235,7 +239,6 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
                     X_mean=mean,
                     X_variance=variance,
                     memory_factor=memory_factor,
-                    noise_mode=noise_mode,
                     noise_profile=noise_profile,
                     dynamic_sequence_lengths=dynamic_sequence_lengths)
 
