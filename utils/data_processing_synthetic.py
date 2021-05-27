@@ -128,18 +128,18 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
 
     w = np.array([memory_factor ** k for k in range(np.max(sequence_lengths))])
 
-    if noise_mode == 'time-dependent':
-        # Default increasing noise profile.
-        # TODO stationarity
-        noise_vars = [[noise_profile[(s * len(noise_profile)) // sl]
-                       for s in range(sl)] for sl in sequence_lengths]
-    elif noise_mode == 'noise-sweep':
+    if noise_mode == 'noise-sweep':
         noise_vars = [
             [noise_profile[(s * len(noise_profile)) // len(sequence_lengths)]] *
             sequence_lengths[s] for s in range(len(sequence_lengths))]
-    else:
+    elif noise_mode == 'none':
         # No additional noise beyond the variance of X_gen
         noise_vars = [[0] * sl for sl in sequence_lengths]
+    else:  # noise_mode == 'time-dependent' or noise_mode == 'long-horizon'
+        # Spread the noise profile across time-steps
+        # TODO stationarity
+        noise_vars = [[noise_profile[(s * len(noise_profile)) // sl]
+                       for s in range(sl)] for sl in sequence_lengths]
 
     # X_full stores the time series values generated from features X_gen.
     ar = [autoregressive(x, w).reshape(-1, n_features) for x in X_gen]
