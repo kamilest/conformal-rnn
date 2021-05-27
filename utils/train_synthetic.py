@@ -15,7 +15,10 @@ def train_conformal_forecaster(noise_mode='time-dependent',
                                embedding_size=20,
                                coverage=0.9,
                                lr=0.01,
-                               retrain=False):
+                               retrain=False,
+                               save_model=False,
+                               save_results=True,
+                               rnn_mode='LSTM'):
 
     if retrain:
         if noise_mode == 'periodic':
@@ -23,7 +26,14 @@ def train_conformal_forecaster(noise_mode='time-dependent',
         else:
             horizon = 5
 
-        horizons = [5, 10, 20]
+        horizons = [100]
+
+        ranges = {
+            'periodic': [2, 10],
+            'time-dependent': range(1, 6),
+            'static': range(1, 6),
+            'long-horizon': [100],
+        }
 
         datasets = get_synthetic_splits(noise_mode=noise_mode, conformal=True)
         results = []
@@ -35,9 +45,12 @@ def train_conformal_forecaster(noise_mode='time-dependent',
             train_dataset, calibration_dataset, test_dataset = dataset
 
             model = CPRNN(embedding_size=embedding_size, horizon=horizon,
-                          error_rate=1 - coverage)
+                          error_rate=1 - coverage, mode=rnn_mode)
             model.fit(train_dataset, calibration_dataset, epochs=epochs, lr=lr,
                       batch_size=batch_size)
+            if save_model:
+                torch.save(model, 'saved_models/{}_{}_{}_{}.pt'.format(
+                    noise_mode, 'CPRNN', model.mode, ranges[noise_mode][i]))
 
             independent_coverages, joint_coverages, intervals = \
                 model.evaluate_coverage(test_dataset)
@@ -67,9 +80,10 @@ def train_conformal_forecaster(noise_mode='time-dependent',
 
             results.append(result)
 
-        with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
-                  'wb') as f:
-            pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
+        if save_results:
+            with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
+                      'wb') as f:
+                pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
     else:
         with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
                   'rb') as f:
