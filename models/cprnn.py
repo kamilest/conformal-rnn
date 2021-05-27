@@ -27,7 +27,7 @@ def coverage(intervals, target):
 
 class CPRNN(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
-                 error_rate=0.05, **kwargs):
+                 error_rate=0.05, mode='LSTM', **kwargs):
         super(CPRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
@@ -40,9 +40,19 @@ class CPRNN(torch.nn.Module):
         # TODO try the RNN autoencoder trained on reconstruction error.
         self.encoder = None
 
-        self.forecaster_rnn = torch.nn.LSTM(input_size=input_size,
-                                            hidden_size=embedding_size,
-                                            batch_first=True)
+        self.mode = mode
+        if self.mode == 'RNN':
+            self.forecaster_rnn = torch.nn.RNN(input_size=input_size,
+                                               hidden_size=embedding_size,
+                                               batch_first=True)
+        elif self.mode == 'GRU':
+            self.forecaster_rnn = torch.nn.GRU(input_size=input_size,
+                                               hidden_size=embedding_size,
+                                               batch_first=True)
+        else:  # self.mode == 'LSTM'
+            self.forecaster_rnn = torch.nn.LSTM(input_size=input_size,
+                                                hidden_size=embedding_size,
+                                                batch_first=True)
         self.forecaster_out = torch.nn.Linear(embedding_size,
                                               horizon * output_size)
 
@@ -55,8 +65,18 @@ class CPRNN(torch.nn.Module):
         self.corrected_critical_calibration_scores = None
 
     def forward(self, x, state=None):
+        if state is not None:
+            h_0, c_0 = state
+        else:
+            h_0 = None
+
         # [batch, horizon, output_size]
-        _, (h_n, c_n) = self.forecaster_rnn(x.float(), state)
+        if self.mode == "LSTM":
+            _, (h_n, c_n) = self.forecaster_rnn(x.float(), state)
+        else:
+            _, h_n = self.forecaster_rnn(x.float(), h_0)
+            c_n = None
+
         out = self.forecaster_out(h_n).reshape(-1, self.horizon,
                                                self.output_size)
 
@@ -165,7 +185,8 @@ class CPRNN(torch.nn.Module):
         for sequences, targets, lengths in test_loader:
             batch_intervals, _ = self.predict(sequences, corrected=corrected)
             intervals.append(batch_intervals)
-            independent_coverage, joint_coverage = coverage(batch_intervals, targets)
+            independent_coverage, joint_coverage = coverage(batch_intervals,
+                                                            targets)
             independent_coverages.append(independent_coverage)
             joint_coverages.append(joint_coverage)
 
@@ -192,7 +213,6 @@ class CPRNN(torch.nn.Module):
             errors.append(torch.nn.functional.l1_loss(point_prediction,
                                                       targets,
                                                       reduction='none').squeeze())
-
 
         point_predictions = torch.cat(point_predictions)
         errors = torch.cat(errors)
