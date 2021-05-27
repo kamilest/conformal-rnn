@@ -15,7 +15,8 @@ torch.manual_seed(1)
 
 def run_medical_experiments(params=None, baselines=None, retrain=False,
                             dataset='mimic', length=None, horizon=None,
-                            correct_conformal=True):
+                            correct_conformal=True, save_model=False,
+                            save_results=True):
     if baselines is None:
         baselines = ["CPRNN", "QRNN", "DPRNN"]
     models = {"CPRNN": CPRNN, "DPRNN": DPRNN, "QRNN": QRNN}
@@ -68,6 +69,10 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                 model.fit(train_dataset, calibration_dataset,
                           epochs=params['epochs'], lr=params['lr'],
                           batch_size=params['batch_size'])
+                if save_model:
+                    torch.save(model, 'saved_models/{}_{}_{}.pt'.format(dataset,
+                                                                        baseline,
+                                                                        model.mode))
                 independent_coverages, joint_coverages, intervals = \
                     model.evaluate_coverage(
                         test_dataset, corrected=correct_conformal)
@@ -109,11 +114,12 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                                                error_threshold="Auto")
 
             baseline_results[baseline] = results
-            corr = '_uncorrected' if not correct_conformal else ''
-            with open('saved_results/{}_{}{}.pkl'.format(dataset,
-                                                         baseline, corr),
-                      'wb') as f:
-                pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
+            if save_results:
+                corr = '_uncorrected' if not correct_conformal else ''
+                with open('saved_results/{}_{}{}.pkl'.format(dataset,
+                                                             baseline, corr),
+                          'wb') as f:
+                    pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     else:
         for baseline in baselines:
