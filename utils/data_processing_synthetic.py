@@ -219,7 +219,7 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
                 noise_profile = [0.1 * i for _ in range(length + horizon)]
                 horizon = i
             else:  # noise_mode == 'periodic':
-                noise_profile = [0.5 for _ in range(length + horizon)]
+                noise_profile = [0.5 * k for k in range(length + horizon)]
                 length = 20
                 horizon = 10
                 periodicity = i
