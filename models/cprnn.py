@@ -60,6 +60,7 @@ class CPRNN(torch.nn.Module):
         self.output_size = output_size
         self.alpha = error_rate
 
+        self.n_train = None
         self.calibration_scores = None
         self.critical_calibration_scores = None
         self.corrected_critical_calibration_scores = None
@@ -147,6 +148,8 @@ class CPRNN(torch.nn.Module):
                 q=1 - corrected_alpha * n_train / (n_train + 1))
             for position_calibration_scores in feature_calibration_scores]
             for feature_calibration_scores in self.calibration_scores]).T
+
+        self.n_train = n_train
 
     def fit(self, train_dataset, calibration_dataset, epochs, lr,
             batch_size=32):
