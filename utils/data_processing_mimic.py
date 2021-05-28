@@ -59,7 +59,13 @@ def get_mimic_dataset(X, Y, L, idx):
 
 
 def get_mimic_splits(n_train=2000, n_calibration=1823, n_test=500,
-                     conformal=True, feature='wbchigh', horizon=2, cached=True):
+                     conformal=True, feature='wbchigh', horizon=2,
+                     cached=True, seed=None):
+    if seed is None:
+        seed = 0
+    else:
+        cached = False
+
     if cached:
         if conformal:
             with open('processed_data/mimic_conformal.pkl', 'rb') as f:
@@ -71,7 +77,7 @@ def get_mimic_splits(n_train=2000, n_calibration=1823, n_test=500,
                     pickle.load(f)
 
     else:
-        perm = np.random.RandomState(seed=0).permutation(
+        perm = np.random.RandomState(seed=seed).permutation(
             n_train + n_calibration + n_test)
         train_idx = perm[:n_train]
         calibration_idx = perm[n_train:n_train + n_calibration]

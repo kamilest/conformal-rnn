@@ -77,7 +77,12 @@ def downsample_sequences(raw_data, length, horizon):
 
 
 def get_eeg_splits(length=40, horizon=10, calibrate=0.2, conformal=True,
-                   cached=True):
+                   cached=True, seed=None):
+    if seed is None:
+        seed = 0
+    else:
+        cached = False
+
     if cached:
         if conformal:
             with open('processed_data/eeg_conformal.pkl', 'rb') as f:
@@ -99,7 +104,7 @@ def get_eeg_splits(length=40, horizon=10, calibrate=0.2, conformal=True,
         X_test_scaled = scaler.transform(X_test)
 
         if conformal:
-            calibration_idx = np.random.RandomState(seed=0) \
+            calibration_idx = np.random.RandomState(seed=seed) \
                 .choice(len(X_train),
                         replace=False,
                         size=int(calibrate * len(X_train)))
