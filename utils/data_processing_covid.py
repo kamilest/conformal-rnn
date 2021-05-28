@@ -42,7 +42,12 @@ def get_raw_covid_data(cached=True):
 
 def get_covid_splits(length=100, horizon=50, conformal=True,
                      n_train=200, n_calibration=100, n_test=80,
-                     cached=True):
+                     cached=True, seed=None):
+    if seed is None:
+        seed = 0
+    else:
+        cached = False
+
     if cached:
         if conformal:
             with open('processed_data/covid_conformal.pkl', 'rb') as f:
@@ -57,7 +62,7 @@ def get_covid_splits(length=100, horizon=50, conformal=True,
         X = raw_data[:, :length]
         Y = raw_data[:, length:length + horizon]
 
-        perm = np.random.RandomState(seed=1).permutation(
+        perm = np.random.RandomState(seed=seed).permutation(
             n_train + n_calibration + n_test)
         train_idx = perm[:n_train]
         calibration_idx = perm[n_train:n_train + n_calibration]

@@ -10,13 +10,17 @@ from utils.data_processing_eeg import get_eeg_splits
 from utils.data_processing_mimic import get_mimic_splits
 from utils.performance import evaluate_performance
 
-torch.manual_seed(1)
-
 
 def run_medical_experiments(params=None, baselines=None, retrain=False,
                             dataset='mimic', length=None, horizon=None,
                             correct_conformal=True, save_model=False,
-                            save_results=True, rnn_mode='LSTM'):
+                            save_results=True, rnn_mode='LSTM', seed=None):
+
+    torch.manual_seed(0 if seed is None else seed)
+
+    if seed is not None:
+        retrain = True
+
     if baselines is None:
         baselines = ["CPRNN", "QRNN", "DPRNN"]
     models = {"CPRNN": CPRNN, "DPRNN": DPRNN, "QRNN": QRNN}
@@ -65,7 +69,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                     mode=rnn_mode)
 
                 train_dataset, calibration_dataset, test_dataset = \
-                    split_fn(conformal=True, horizon=horizon)
+                    split_fn(conformal=True, horizon=horizon, seed=seed)
 
                 model.fit(train_dataset, calibration_dataset,
                           epochs=params['epochs'], lr=params['lr'],
