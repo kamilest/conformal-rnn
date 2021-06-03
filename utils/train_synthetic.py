@@ -6,7 +6,7 @@ import torch
 
 from models.cprnn import CPRNN
 from models.rnn import RNN
-from models.uncertainty import RNN_uncertainty_wrapper
+from models.bjrnn import RNN_uncertainty_wrapper
 from utils.data_processing_synthetic import get_synthetic_splits
 from utils.performance import evaluate_performance
 

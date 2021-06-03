@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from models.rnn import RNN
-from models.uncertainty import RNN_uncertainty_wrapper
+from models.bjrnn import RNN_uncertainty_wrapper
 from utils.data_processing_synthetic import *
 
 
