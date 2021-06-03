@@ -150,7 +150,7 @@ def train_blockwise_forecaster(noise_mode='time-dependent',
     return results
 
 
-def train_bjrnn():
+def train_bjrnn(noise_mode='time-dependent'):
     def get_coverage(intervals_, target, coverage_mode='joint'):
         lower, upper = intervals_[0], intervals_[1]
 
@@ -174,7 +174,7 @@ def train_bjrnn():
     results = []
     for i in range(1, 6):
         with open('processed_data/synthetic_{}_raw_{}.pkl'.format(
-                'time-dependent', i),
+                noise_mode, i),
                 'rb') as f:
             train_dataset, calibration_dataset, test_dataset = \
                 pickle.load(f)
@@ -214,11 +214,7 @@ def train_bjrnn():
         del RNN_model_
         gc.collect()
 
-    with open('saved_results/time-dependent_BJRNN.pkl', 'wb') as output:
+    with open('saved_results/{}_BJRNN.pkl'.format(noise_mode), 'wb') as output:
         pickle.dump(results, output, pickle.HIGHEST_PROTOCOL)
 
     return results
-
-
-if __name__ == "__main__":
-    train_bjrnn()
