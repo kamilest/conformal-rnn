@@ -1,3 +1,6 @@
+# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors
+# Licensed under the BSD 3-clause license
+
 import torch
 
 
@@ -31,14 +34,6 @@ class CPRNN(torch.nn.Module):
         super(CPRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
-
-        # Encoder and forecaster can be the same (if embeddings are
-        # trained on `horizon`-step forecasts), but different models are
-        # possible.
-
-        # TODO try separate encoder and forecaster models.
-        # TODO try the RNN autoencoder trained on reconstruction error.
-        self.encoder = None
 
         self.mode = mode
         if self.mode == 'RNN':
@@ -164,7 +159,6 @@ class CPRNN(torch.nn.Module):
 
     def predict(self, x, state=None, corrected=True):
         """Forecasts the time series with conformal uncertainty intervals."""
-        # TODO +/- nonconformity will not return *adaptive* interval widths.
         out, hidden = self(x, state)
 
         if not corrected:

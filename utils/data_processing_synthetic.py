@@ -1,5 +1,5 @@
-# Copyright (c) 2020, Ahmed M. Alaa
-# Licensed under the BSD 3-clause license (see LICENSE.txt)
+# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors, Ahmed M. Alaa
+# Licensed under the BSD 3-clause license
 
 import pickle
 
@@ -137,7 +137,6 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         noise_vars = [[0] * sl for sl in sequence_lengths]
     else:  # noise_mode == 'time-dependent' or noise_mode == 'long-horizon'
         # Spread the noise profile across time-steps
-        # TODO stationarity
         noise_vars = [[noise_profile[(s * len(noise_profile)) // sl]
                        for s in range(sl)] for sl in sequence_lengths]
 
