@@ -7,6 +7,8 @@ import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler
 
+mimic_root = 'data/mimic.p'
+
 
 class MIMICDataset(torch.utils.data.Dataset):
     def __init__(self, X, Y, sequence_lengths):
@@ -38,7 +40,7 @@ def process_mimic_data(feature='wbchigh'):
 
     idx = feature_names.index(feature)
 
-    with open('data/mimic.p', 'rb') as f:
+    with open(mimic_root, 'rb') as f:
         MIMIC_data = pickle.load(f)
 
     Y = MIMIC_data["longitudinal"][:, :, idx]  # 'wbchigh'
