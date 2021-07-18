@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 import torch
 
-from models.cprnn import CPRNN
+from models.cornn import CoRNN
 from models.rnn import RNN
 from models.bjrnn import RNN_uncertainty_wrapper
 from utils.data_processing_synthetic import get_synthetic_splits
@@ -45,13 +45,13 @@ def train_conformal_forecaster(noise_mode='time-dependent',
 
             train_dataset, calibration_dataset, test_dataset = dataset
 
-            model = CPRNN(embedding_size=embedding_size, horizon=horizon,
+            model = CoRNN(embedding_size=embedding_size, horizon=horizon,
                           error_rate=1 - coverage, mode=rnn_mode)
             model.fit(train_dataset, calibration_dataset, epochs=epochs, lr=lr,
                       batch_size=batch_size)
             if save_model:
                 torch.save(model, 'saved_models/{}_{}_{}_{}.pt'.format(
-                    noise_mode, 'CPRNN', model.mode, ranges[noise_mode][i]))
+                    noise_mode, 'CoRNN', model.mode, ranges[noise_mode][i]))
 
             independent_coverages, joint_coverages, intervals = \
                 model.evaluate_coverage(test_dataset)
@@ -82,11 +82,11 @@ def train_conformal_forecaster(noise_mode='time-dependent',
             results.append(result)
 
         if save_results:
-            with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
+            with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CoRNN'),
                       'wb') as f:
                 pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
     else:
-        with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CPRNN'),
+        with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CoRNN'),
                   'rb') as f:
             results = pickle.load(f)
 
