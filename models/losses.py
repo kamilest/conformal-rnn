@@ -1,15 +1,6 @@
 # Copyright (c) 2020, Ahmed M. Alaa
 # Licensed under the BSD 3-clause license (see LICENSE.txt)
 
-from __future__ import absolute_import, division, print_function
-
-import sys
-
-if not sys.warnoptions:
-    import warnings
-
-    warnings.simplefilter("ignore")
-
 import torch
 
 torch.manual_seed(1)
