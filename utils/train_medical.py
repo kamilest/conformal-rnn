@@ -2,7 +2,7 @@ import pickle
 
 import torch
 
-from models.cprnn import CPRNN
+from models.cornn import CoRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from utils.data_processing_covid import get_covid_splits
@@ -22,8 +22,8 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
         retrain = True
 
     if baselines is None:
-        baselines = ["CPRNN", "QRNN", "DPRNN"]
-    models = {"CPRNN": CPRNN, "DPRNN": DPRNN, "QRNN": QRNN}
+        baselines = ["CoRNN", "QRNN", "DPRNN"]
+    models = {"CoRNN": CoRNN, "DPRNN": DPRNN, "QRNN": QRNN}
 
     horizons = {'mimic': 2,
                 'eeg': 10,
@@ -52,7 +52,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                   'n_steps': 1000,
                   'input_size': 1}
 
-    baseline_results = dict({"CPRNN": {}, "QRNN": {}, "DPRNN": {}})
+    baseline_results = dict({"CoRNN": {}, "QRNN": {}, "DPRNN": {}})
 
     params['max_steps'] = length
     params['output_size'] = horizon
@@ -60,9 +60,9 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
     if retrain:
         for baseline in baselines:
             print('Training {}'.format(baseline))
-            if baseline == 'CPRNN':
+            if baseline == 'CoRNN':
                 params['epochs'] = 100 if dataset == 'eeg' else 1000
-                model = CPRNN(
+                model = CoRNN(
                     embedding_size=params['embedding_size'],
                     horizon=horizon,
                     error_rate=1 - params['coverage'],
@@ -128,7 +128,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
 
     else:
         for baseline in baselines:
-            corr = '_uncorrected' if (baseline == 'CPRNN' and not
+            corr = '_uncorrected' if (baseline == 'CoRNN' and not
             correct_conformal) else ''
             with open('saved_results/{}_{}{}.pkl'.format(dataset, baseline,
                                                          corr),

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from models.cprnn import CPRNN
+from models.cornn import CoRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from utils.performance import evaluate_performance
@@ -209,7 +209,7 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
 
     if baselines is None:
         baselines = ["CoRNN", "QRNN", "DPRNN"]
-    models = {"CoRNN": CPRNN, "DPRNN": DPRNN, "QRNN": QRNN}
+    models = {"CoRNN": CoRNN, "DPRNN": DPRNN, "QRNN": QRNN}
 
     if params is None:
         params = {'epochs': 1000,
@@ -262,7 +262,7 @@ def run_uci_experiments(params=None, baselines=None, datasets=None,
                     params['epochs'] = 1000
                     if dataset == 'energy':
                         params['epochs'] = 100
-                    model = CPRNN(
+                    model = CoRNN(
                         embedding_size=params['embedding_size'],
                         horizon=horizon,
                         error_rate=1 - params['coverage'])

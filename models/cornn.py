@@ -25,10 +25,10 @@ def coverage(intervals, target):
     return horizon_coverages, torch.all(horizon_coverages, dim=1)
 
 
-class CPRNN(torch.nn.Module):
+class CoRNN(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  error_rate=0.05, mode='LSTM', **kwargs):
-        super(CPRNN, self).__init__()
+        super(CoRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
 
