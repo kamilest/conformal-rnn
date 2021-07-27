@@ -41,26 +41,21 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                             correct_conformal=True, save_model=False,
                             save_results=True, rnn_mode='LSTM', seed=None):
 
+    # Models
+    baselines = BASELINE_CLASSES.keys() if baselines is None else baselines
+    for baseline in baselines:
+        assert baseline in BASELINE_CLASSES.keys(), 'Invalid baselines'
+
+    # Datasets
     assert dataset in DATASET_SPLIT_FNS.keys(), 'Invalid dataset'
+    split_fn = DATASET_SPLIT_FNS[dataset]
+    horizon = HORIZON_LENGTHS[dataset] if horizon is None else horizon
+    length = TS_LENGTHS[dataset] if length is None else length
 
-    if baselines is None:
-        baselines = BASELINE_CLASSES.keys()
-    else:
-        for baseline in baselines:
-            assert baseline in BASELINE_CLASSES.keys(), 'Invalid baselines'
-
-    if horizon is None:
-        horizon = HORIZON_LENGTHS[dataset]
-
-    if length is None:
-        length = TS_LENGTHS[dataset]
-
-    if params is None:
-        params = DEFAULT_PARAMS
+    # Parameters
+    params = DEFAULT_PARAMS if params is None else params
     params['max_steps'] = length
     params['output_size'] = horizon
-
-    split_fn = DATASET_SPLIT_FNS[dataset]
 
     baseline_results = dict({"CoRNN": {}, "QRNN": {}, "DPRNN": {}})
 
@@ -127,7 +122,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                 results = evaluate_performance(model, test_dataset[0],
                                                test_dataset[1],
                                                coverage=params['coverage'],
-                                               error_threshold="Auto")
+                                               error_threshold='Auto')
 
             baseline_results[baseline] = results
             if save_results:
