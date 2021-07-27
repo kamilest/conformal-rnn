@@ -15,13 +15,20 @@ from utils.performance import evaluate_performance
 
 BASELINE_CLASSES = {"CoRNN": CoRNN, "DPRNN": DPRNN, "QRNN": QRNN}
 
-DEFAULT_PARAMS = {'epochs': 1000,
-                  'batch_size': 150,
+DEFAULT_PARAMS = {'batch_size': 150,
                   'embedding_size': 20,
                   'coverage': 0.9,
                   'lr': 0.01,
                   'n_steps': 1000,
                   'input_size': 1}
+
+# Epochs are counted differently in DPRNN and QRNN compared to CoRNN but
+# similar number of iterations are performed; see implementation details.
+EPOCHS = {
+    'mimic': {'CoRNN': 1000, 'DPRNN': 10, 'QRNN': 10},
+    'eeg': {'CoRNN': 100, 'DPRNN': 10, 'QRNN': 10},
+    'covid': {'CoRNN': 1000, 'DPRNN': 10, 'QRNN': 10}
+}
 
 DATASET_SPLIT_FNS = {'mimic': get_mimic_splits,
                      'eeg': get_eeg_splits,
@@ -40,7 +47,6 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                             dataset='mimic', length=None, horizon=None,
                             correct_conformal=True, save_model=False,
                             save_results=True, rnn_mode='LSTM', seed=None):
-
     # Models
     baselines = BASELINE_CLASSES.keys() if baselines is None else baselines
     for baseline in baselines:
@@ -66,8 +72,9 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
     if retrain:
         for baseline in baselines:
             print('Training {}'.format(baseline))
+            params['epochs'] = EPOCHS[dataset][baseline]
+
             if baseline == 'CoRNN':
-                params['epochs'] = 100 if dataset == 'eeg' else 1000
                 model = CoRNN(
                     embedding_size=params['embedding_size'],
                     horizon=horizon,
@@ -112,7 +119,6 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                                interval_widths.mean(dim=0)}
 
             else:
-                params['epochs'] = 10
                 model = BASELINE_CLASSES[baseline](**params)
 
                 train_dataset, _, test_dataset = \
