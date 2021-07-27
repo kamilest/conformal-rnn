@@ -129,8 +129,8 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
 
     else:
         for baseline in baselines:
-            corr = '_uncorrected' if (baseline == BASELINES.CoRNN and not
-            correct_conformal) else ''
+            corr = '_uncorrected' if (baseline == BASELINES.CoRNN
+                                      and not correct_conformal) else ''
             with open('saved_results/{}_{}{}.pkl'.format(dataset, baseline,
                                                          corr),
                       'rb') as f:
