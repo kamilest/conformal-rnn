@@ -1,3 +1,6 @@
+# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors, Ahmed M. Alaa
+# Licensed under the BSD 3-clause license
+
 import numpy as np
 import torch
 from torch import nn
