@@ -83,25 +83,23 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
     if retrain:
         for baseline in baselines:
             print('Training {}'.format(baseline))
+
+            conformal = baseline == BASELINES.CoRNN
+            train_dataset, calibration_dataset, test_dataset = \
+                split_fn(conformal=conformal, horizon=horizon, seed=seed)
+
             params['epochs'] = EPOCHS[baseline][dataset]
 
-            if baseline == BASELINES.CoRNN:
+            if conformal:
                 model = CoRNN(
                     embedding_size=params['embedding_size'],
                     horizon=horizon,
                     error_rate=1 - params['coverage'],
                     mode=rnn_mode)
 
-                train_dataset, calibration_dataset, test_dataset = \
-                    split_fn(conformal=True, horizon=horizon, seed=seed)
-
                 model.fit(train_dataset, calibration_dataset,
                           epochs=params['epochs'], lr=params['lr'],
                           batch_size=params['batch_size'])
-                if save_model:
-                    torch.save(model, 'saved_models/{}_{}_{}.pt'.format(dataset,
-                                                                        baseline,
-                                                                        model.mode))
 
                 results = evaluate_cornn_performance(model, test_dataset,
                                                      correct_conformal)
@@ -109,16 +107,19 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
             else:
                 model = BASELINE_CLASSES[baseline](**params)
 
-                train_dataset, _, test_dataset = \
-                    split_fn(conformal=False, horizon=horizon)
-
                 model.fit(train_dataset[0], train_dataset[1])
+
                 results = evaluate_performance(model, test_dataset[0],
                                                test_dataset[1],
                                                coverage=params['coverage'],
                                                error_threshold='Auto')
 
             baseline_results[baseline] = results
+
+            if save_model and conformal:
+                torch.save(model, 'saved_models/{}_{}_{}.pt'.format(dataset,
+                                                                    baseline,
+                                                                    rnn_mode))
             if save_results:
                 corr = '_uncorrected' if not correct_conformal else ''
                 with open('saved_results/{}_{}{}.pkl'.format(dataset,
