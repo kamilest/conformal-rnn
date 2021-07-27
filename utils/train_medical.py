@@ -2,6 +2,7 @@
 # Licensed under the BSD 3-clause license
 
 import pickle
+from enum import Enum
 
 import torch
 
@@ -13,7 +14,16 @@ from utils.data_processing_eeg import get_eeg_splits
 from utils.data_processing_mimic import get_mimic_splits
 from utils.performance import evaluate_performance
 
-BASELINE_CLASSES = {"CoRNN": CoRNN, "DPRNN": DPRNN, "QRNN": QRNN}
+
+class BASELINES(Enum):
+    CoRNN = 'CPRNN'
+    DPRNN = 'DPRNN'
+    QRNN = 'QRNN'
+
+
+BASELINE_CLASSES = {BASELINES.CoRNN: CoRNN,
+                    BASELINES.DPRNN: DPRNN,
+                    BASELINES.QRNN: QRNN}
 
 DEFAULT_PARAMS = {'batch_size': 150,
                   'embedding_size': 20,
@@ -63,7 +73,8 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
     params['max_steps'] = length
     params['output_size'] = horizon
 
-    baseline_results = dict({"CoRNN": {}, "QRNN": {}, "DPRNN": {}})
+    baseline_results = dict({BASELINES.CoRNN: {}, BASELINES.QRNN: {},
+                             BASELINES.DPRNN: {}})
 
     torch.manual_seed(0 if seed is None else seed)
     if seed is not None:
@@ -81,42 +92,8 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                     error_rate=1 - params['coverage'],
                     mode=rnn_mode)
 
-                train_dataset, calibration_dataset, test_dataset = \
-                    split_fn(conformal=True, horizon=horizon, seed=seed)
-
-                model.fit(train_dataset, calibration_dataset,
-                          epochs=params['epochs'], lr=params['lr'],
-                          batch_size=params['batch_size'])
-                if save_model:
-                    torch.save(model, 'saved_models/{}_{}_{}.pt'.format(dataset,
-                                                                        baseline,
-                                                                        model.mode))
-                independent_coverages, joint_coverages, intervals = \
-                    model.evaluate_coverage(
-                        test_dataset, corrected=correct_conformal)
-                mean_independent_coverage = torch.mean(
-                    independent_coverages.float(),
-                    dim=0)
-                mean_joint_coverage = torch.mean(joint_coverages.float(),
-                                                 dim=0).item()
-                interval_widths = (intervals[:, 1] - intervals[:, 0]).squeeze()
-                point_predictions, errors = \
-                    model.get_point_predictions_and_errors(test_dataset,
-                                                           corrected=correct_conformal)
-                results = {'Point predictions': point_predictions,
-                           'Errors': errors,
-                           'Independent coverage indicators':
-                               independent_coverages.squeeze(),
-                           'Joint coverage indicators':
-                               joint_coverages.squeeze(),
-                           'Upper limit': intervals[:, 1],
-                           'Lower limit': intervals[:, 0],
-                           'Mean independent coverage':
-                               mean_independent_coverage.squeeze(),
-                           'Mean joint coverage': mean_joint_coverage,
-                           'Confidence interval widths': interval_widths,
-                           'Mean confidence interval widths':
-                               interval_widths.mean(dim=0)}
+            if baseline == BASELINES.CoRNN:
+                results = train_cornn()
 
             else:
                 model = BASELINE_CLASSES[baseline](**params)
@@ -140,7 +117,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
 
     else:
         for baseline in baselines:
-            corr = '_uncorrected' if (baseline == 'CoRNN' and not
+            corr = '_uncorrected' if (baseline == BASELINES.CoRNN and not
             correct_conformal) else ''
             with open('saved_results/{}_{}{}.pkl'.format(dataset, baseline,
                                                          corr),
