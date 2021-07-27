@@ -28,12 +28,14 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
         baselines = ["CPRNN", "QRNN", "DPRNN"]
     models = {"CPRNN": CPRNN, "DPRNN": DPRNN, "QRNN": QRNN}
 
+    # TODO variable horizons: hyperparameters?
     horizons = {'mimic': 2,
                 'eeg': 10,
                 'covid': 50}
     if horizon is None:
         horizon = horizons[dataset]
 
+    # TODO separate TS length parameters
     lengths = {'mimic': 49 - horizon,
                'eeg': 40,
                'covid': 100}

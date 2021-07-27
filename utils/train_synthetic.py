@@ -113,6 +113,7 @@ def train_blockwise_forecaster(noise_mode='time-dependent',
                   'input_size': 1,
                   'mode': 'LSTM'}
 
+        # TODO separate parameters / clear documentation
         if noise_mode == 'periodic':
             length = 20
             horizon = 10
