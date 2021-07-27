@@ -36,8 +36,8 @@ DEFAULT_PARAMS = {'batch_size': 150,
 # similar number of iterations are performed; see implementation details.
 EPOCHS = {
     BASELINES.CoRNN: {'mimic': 1000, 'eeg': 100, 'covid': 1000},
-    BASELINES.DPRNN: {'mimic': 100, 'eeg': 10, 'covid': 10},
-    BASELINES.QRNN: {'mimic': 1000, 'eeg': 10, 'covid': 10}
+    BASELINES.DPRNN: {'mimic': 10, 'eeg': 10, 'covid': 10},
+    BASELINES.QRNN: {'mimic': 10, 'eeg': 10, 'covid': 10}
 }
 
 DATASET_SPLIT_FNS = {'mimic': get_mimic_splits,
