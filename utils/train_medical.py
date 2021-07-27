@@ -13,43 +13,9 @@ from utils.data_processing_eeg import get_eeg_splits
 from utils.data_processing_mimic import get_mimic_splits
 from utils.performance import evaluate_performance
 
+BASELINE_CLASSES = {"CoRNN": CoRNN, "DPRNN": DPRNN, "QRNN": QRNN}
 
-def run_medical_experiments(params=None, baselines=None, retrain=False,
-                            dataset='mimic', length=None, horizon=None,
-                            correct_conformal=True, save_model=False,
-                            save_results=True, rnn_mode='LSTM', seed=None):
-
-    torch.manual_seed(0 if seed is None else seed)
-
-    if seed is not None:
-        retrain = True
-
-    if baselines is None:
-        baselines = ["CoRNN", "QRNN", "DPRNN"]
-    models = {"CoRNN": CoRNN, "DPRNN": DPRNN, "QRNN": QRNN}
-
-    # TODO variable horizons: hyperparameters?
-    horizons = {'mimic': 2,
-                'eeg': 10,
-                'covid': 50}
-    if horizon is None:
-        horizon = horizons[dataset]
-
-    # TODO separate TS length parameters
-    lengths = {'mimic': 49 - horizon,
-               'eeg': 40,
-               'covid': 100}
-    if length is None:
-        length = lengths[dataset]
-
-    split_fns = {'mimic': get_mimic_splits,
-                 'eeg': get_eeg_splits,
-                 'covid': get_covid_splits}
-
-    split_fn = split_fns[dataset]
-
-    if params is None:
-        params = {'epochs': 1000,
+DEFAULT_PARAMS = {'epochs': 1000,
                   'batch_size': 150,
                   'embedding_size': 20,
                   'coverage': 0.9,
@@ -57,10 +23,50 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                   'n_steps': 1000,
                   'input_size': 1}
 
-    baseline_results = dict({"CoRNN": {}, "QRNN": {}, "DPRNN": {}})
+DATASET_SPLIT_FNS = {'mimic': get_mimic_splits,
+                     'eeg': get_eeg_splits,
+                     'covid': get_covid_splits}
 
+HORIZON_LENGTHS = {'mimic': 2,
+                   'eeg': 10,
+                   'covid': 50}
+
+TS_LENGTHS = {'mimic': 47,  # 49 - horizon
+              'eeg': 40,
+              'covid': 100}
+
+
+def run_medical_experiments(params=None, baselines=None, retrain=False,
+                            dataset='mimic', length=None, horizon=None,
+                            correct_conformal=True, save_model=False,
+                            save_results=True, rnn_mode='LSTM', seed=None):
+
+    assert dataset in DATASET_SPLIT_FNS.keys(), 'Invalid dataset'
+
+    if baselines is None:
+        baselines = BASELINE_CLASSES.keys()
+    else:
+        for baseline in baselines:
+            assert baseline in BASELINE_CLASSES.keys(), 'Invalid baselines'
+
+    if horizon is None:
+        horizon = HORIZON_LENGTHS[dataset]
+
+    if length is None:
+        length = TS_LENGTHS[dataset]
+
+    if params is None:
+        params = DEFAULT_PARAMS
     params['max_steps'] = length
     params['output_size'] = horizon
+
+    split_fn = DATASET_SPLIT_FNS[dataset]
+
+    baseline_results = dict({"CoRNN": {}, "QRNN": {}, "DPRNN": {}})
+
+    torch.manual_seed(0 if seed is None else seed)
+    if seed is not None:
+        retrain = True
 
     if retrain:
         for baseline in baselines:
@@ -112,7 +118,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
 
             else:
                 params['epochs'] = 10
-                model = models[baseline](**params)
+                model = BASELINE_CLASSES[baseline](**params)
 
                 train_dataset, _, test_dataset = \
                     split_fn(conformal=False, horizon=horizon)
