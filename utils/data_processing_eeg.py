@@ -1,3 +1,6 @@
+# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors
+# Licensed under the BSD 3-clause license
+
 import gzip
 import os
 import pathlib

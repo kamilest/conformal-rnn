@@ -1,5 +1,5 @@
-# Copyright (c) 2020, Ahmed M. Alaa
-# Licensed under the BSD 3-clause license (see LICENSE.txt)
+# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors, Ahmed M. Alaa
+# Licensed under the BSD 3-clause license
 
 import pickle
 
