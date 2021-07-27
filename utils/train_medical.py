@@ -35,10 +35,11 @@ DEFAULT_PARAMS = {'batch_size': 150,
 # Epochs are counted differently in DPRNN and QRNN compared to CoRNN but
 # similar number of iterations are performed; see implementation details.
 EPOCHS = {
-    'mimic': {'CoRNN': 1000, 'DPRNN': 10, 'QRNN': 10},
-    'eeg': {'CoRNN': 100, 'DPRNN': 10, 'QRNN': 10},
-    'covid': {'CoRNN': 1000, 'DPRNN': 10, 'QRNN': 10}
+    BASELINES.CoRNN: {'mimic': 1000, 'eeg': 100, 'covid': 1000},
+    BASELINES.DPRNN: {'mimic': 100, 'eeg': 10, 'covid': 10},
+    BASELINES.QRNN: {'mimic': 1000, 'eeg': 10, 'covid': 10}
 }
+
 
 DATASET_SPLIT_FNS = {'mimic': get_mimic_splits,
                      'eeg': get_eeg_splits,
@@ -80,17 +81,57 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
     if seed is not None:
         retrain = True
 
+    def train_cornn():
+        model = CoRNN(
+            embedding_size=params['embedding_size'],
+            horizon=horizon,
+            error_rate=1 - params['coverage'],
+            mode=rnn_mode)
+
+        train_dataset, calibration_dataset, test_dataset = \
+            split_fn(conformal=True, horizon=horizon, seed=seed)
+
+        model.fit(train_dataset, calibration_dataset,
+                  epochs=params['epochs'], lr=params['lr'],
+                  batch_size=params['batch_size'])
+        if save_model:
+            torch.save(model, 'saved_models/{}_{}_{}.pt'.format(dataset,
+                                                                baseline,
+                                                                model.mode))
+        independent_coverages, joint_coverages, intervals = \
+            model.evaluate_coverage(
+                test_dataset, corrected=correct_conformal)
+        mean_independent_coverage = torch.mean(
+            independent_coverages.float(),
+            dim=0)
+        mean_joint_coverage = torch.mean(joint_coverages.float(),
+                                         dim=0).item()
+        interval_widths = (intervals[:, 1] - intervals[:, 0]).squeeze()
+        point_predictions, errors = \
+            model.get_point_predictions_and_errors(test_dataset,
+                                                   corrected=correct_conformal)
+
+        results = {'Point predictions': point_predictions,
+                   'Errors': errors,
+                   'Independent coverage indicators':
+                       independent_coverages.squeeze(),
+                   'Joint coverage indicators':
+                       joint_coverages.squeeze(),
+                   'Upper limit': intervals[:, 1],
+                   'Lower limit': intervals[:, 0],
+                   'Mean independent coverage':
+                       mean_independent_coverage.squeeze(),
+                   'Mean joint coverage': mean_joint_coverage,
+                   'Confidence interval widths': interval_widths,
+                   'Mean confidence interval widths':
+                       interval_widths.mean(dim=0)}
+
+        return results
+
     if retrain:
         for baseline in baselines:
             print('Training {}'.format(baseline))
-            params['epochs'] = EPOCHS[dataset][baseline]
-
-            if baseline == 'CoRNN':
-                model = CoRNN(
-                    embedding_size=params['embedding_size'],
-                    horizon=horizon,
-                    error_rate=1 - params['coverage'],
-                    mode=rnn_mode)
+            params['epochs'] = EPOCHS[baseline][dataset]
 
             if baseline == BASELINES.CoRNN:
                 results = train_cornn()
