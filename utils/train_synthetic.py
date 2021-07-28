@@ -7,14 +7,17 @@ import pickle
 import numpy as np
 import torch
 
+from models.bjrnn import RNN_uncertainty_wrapper
 from models.cornn import CoRNN
 from models.rnn import RNN
-from models.bjrnn import RNN_uncertainty_wrapper
-from utils.data_processing_synthetic import get_synthetic_splits
-from utils.performance import evaluate_performance
+from utils.data_processing_synthetic import get_synthetic_splits, \
+    EXPERIMENT_MODES, HORIZONS
+from utils.performance import evaluate_performance, evaluate_cornn_performance
+
+CONFORMAL_FORECASTER_NAME = 'CPRNN'
 
 
-def train_conformal_forecaster(noise_mode='time-dependent',
+def train_conformal_forecaster(experiment_mode='time-dependent',
                                epochs=1000,  # LSTM parameters
                                batch_size=100,
                                embedding_size=20,
@@ -25,26 +28,15 @@ def train_conformal_forecaster(noise_mode='time-dependent',
                                save_results=True,
                                rnn_mode='LSTM'):
     if retrain:
-        if noise_mode == 'periodic':
-            horizon = 10
-        else:
-            horizon = 5
-
-        horizons = [100]
-
-        ranges = {
-            'periodic': [2, 10],
-            'time-dependent': range(1, 6),
-            'static': range(1, 6),
-            'long-horizon': [100],
-        }
-
-        datasets = get_synthetic_splits(noise_mode=noise_mode, conformal=True)
+        datasets = get_synthetic_splits(noise_mode=experiment_mode,
+                                        conformal=True)
         results = []
 
         for i, dataset in enumerate(datasets):
-            if noise_mode == 'long-horizon':
-                horizon = horizons[i]
+            if experiment_mode == 'long-horizon':
+                horizon = EXPERIMENT_MODES[experiment_mode][i]
+            else:
+                horizon = HORIZONS[experiment_mode]
 
             train_dataset, calibration_dataset, test_dataset = dataset
 
@@ -54,42 +46,20 @@ def train_conformal_forecaster(noise_mode='time-dependent',
                       batch_size=batch_size)
             if save_model:
                 torch.save(model, 'saved_models/{}_{}_{}_{}.pt'.format(
-                    noise_mode, 'CoRNN', model.mode, ranges[noise_mode][i]))
+                    experiment_mode, CONFORMAL_FORECASTER_NAME, model.mode,
+                    EXPERIMENT_MODES[experiment_mode][i]))
 
-            independent_coverages, joint_coverages, intervals = \
-                model.evaluate_coverage(test_dataset)
-            mean_independent_coverage = torch.mean(
-                independent_coverages.float(),
-                dim=0)
-            mean_joint_coverage = torch.mean(joint_coverages.float(),
-                                             dim=0).item()
-            interval_widths = (intervals[:, 1] - intervals[:, 0]).squeeze()
-            point_predictions, errors = \
-                model.get_point_predictions_and_errors(test_dataset)
-
-            result = {'Point predictions': point_predictions,
-                      'Errors': errors,
-                      'Independent coverage indicators':
-                          independent_coverages.squeeze(),
-                      'Joint coverage indicators':
-                          joint_coverages.squeeze(),
-                      'Upper limit': intervals[:, 1],
-                      'Lower limit': intervals[:, 0],
-                      'Mean independent coverage':
-                          mean_independent_coverage.squeeze(),
-                      'Mean joint coverage': mean_joint_coverage,
-                      'Confidence interval widths': interval_widths,
-                      'Mean confidence interval widths': interval_widths.mean(
-                          dim=0)}
-
+            result = evaluate_cornn_performance(model, test_dataset)
             results.append(result)
 
         if save_results:
-            with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CoRNN'),
+            with open('saved_results/{}_{}.pkl'.format(experiment_mode,
+                                                       CONFORMAL_FORECASTER_NAME),
                       'wb') as f:
                 pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
     else:
-        with open('saved_results/{}_{}.pkl'.format(noise_mode, 'CoRNN'),
+        with open('saved_results/{}_{}.pkl'.format(experiment_mode,
+                                                   CONFORMAL_FORECASTER_NAME),
                   'rb') as f:
             results = pickle.load(f)
 
