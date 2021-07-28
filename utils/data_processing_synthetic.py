@@ -6,6 +6,27 @@ import pickle
 import numpy as np
 import torch
 
+# Settings controlling the independent variables of experiments depending on
+# the experiment mode:
+#   periodic: Controls periodicity.
+#   time-dependent: Controls increasing noise amplitude within a single time-series.
+#   static: Controls noise amplitudes across the collection of time-series.
+#   long-horizon: Controls the horizon length of time-series.
+
+EXPERIMENT_MODES = {
+    'periodic': [2, 10],
+    'time-dependent': range(1, 6),
+    'static': range(1, 6),
+    'long-horizon': [5, 10, 100],
+}
+
+HORIZONS = {
+    'periodic': 10,
+    'time-dependent': 5,
+    'static': 5,
+    'long-horizon': [5, 10, 100]
+}
+
 
 def autoregressive(X_gen, w):
     """ Generates the autoregressive component of a single time series
@@ -185,16 +206,9 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
     amplitude = 1
     dynamic_sequence_lengths = False
 
-    ranges = {
-        'periodic': [2, 10],
-        'time-dependent': range(1, 6),
-        'static': range(1, 6),
-        'long-horizon': [100],
-    }
-
     if cached:
         datasets = []
-        for i in ranges[noise_mode]:
+        for i in EXPERIMENT_MODES[noise_mode]:
             if conformal:
                 with open('processed_data/synthetic_{}_conformal_{}.pkl'.format(
                         noise_mode, i),
@@ -204,14 +218,14 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
             else:
                 with open('processed_data/synthetic_{}_raw_{}.pkl'.format(
                         noise_mode, i),
-                          'rb') as f:
+                        'rb') as f:
                     train_dataset, calibration_dataset, test_dataset = \
                         pickle.load(f)
             datasets.append((train_dataset, calibration_dataset, test_dataset))
     else:
         datasets = []
 
-        for i in ranges[noise_mode]:
+        for i in EXPERIMENT_MODES[noise_mode]:
             if noise_mode == 'time-dependent':
                 noise_profile = [0.1 * i * k for k in range(length + horizon)]
             elif noise_mode == 'static':
@@ -269,12 +283,14 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
                     dynamic_sequence_lengths=dynamic_sequence_lengths)
 
             # X: [n_samples, max_seq_len, n_features]
-            X_calibration_tensor = torch.nn.utils.rnn.pad_sequence(X_calibration,
-                                                                   batch_first=True).float()
+            X_calibration_tensor = torch.nn.utils.rnn.pad_sequence(
+                X_calibration,
+                batch_first=True).float()
 
             # Y: [n_samples, horizon, n_features]
-            Y_calibration_tensor = torch.nn.utils.rnn.pad_sequence(Y_calibration,
-                                                                   batch_first=True).float()
+            Y_calibration_tensor = torch.nn.utils.rnn.pad_sequence(
+                Y_calibration,
+                batch_first=True).float()
 
             sequence_lengths_calibration = sequence_lengths_calibration - horizon
             calibration_dataset = AutoregressiveForecastDataset(
@@ -311,20 +327,21 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
 
             with open('processed_data/synthetic_{}_conformal_{}.pkl'.format(
                     noise_mode, i),
-                      'wb') as f:
+                    'wb') as f:
                 pickle.dump((train_dataset, calibration_dataset, test_dataset),
                             f,
                             protocol=pickle.HIGHEST_PROTOCOL)
 
             with open('processed_data/synthetic_{}_raw_{}.pkl'.format(
                     noise_mode, i),
-                      'wb') as f:
+                    'wb') as f:
                 pickle.dump(((X_train, Y_train), None, (X_test, Y_test)),
                             f,
                             protocol=pickle.HIGHEST_PROTOCOL)
 
             if conformal:
-                datasets.append((train_dataset, calibration_dataset, test_dataset))
+                datasets.append(
+                    (train_dataset, calibration_dataset, test_dataset))
             else:
                 datasets.append(((X_train, Y_train), None, (X_test, Y_test)))
 
