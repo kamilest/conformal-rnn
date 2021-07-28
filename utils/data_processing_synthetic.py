@@ -12,6 +12,7 @@ import torch
 #   time-dependent: Controls increasing noise amplitude within a single time-series.
 #   static: Controls noise amplitudes across the collection of time-series.
 #   long-horizon: Controls the horizon length of time-series.
+# See paper for details.
 
 EXPERIMENT_MODES = {
     'periodic': [2, 10],
