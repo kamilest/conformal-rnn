@@ -16,6 +16,17 @@ from utils.performance import evaluate_performance, evaluate_cornn_performance
 
 CONFORMAL_FORECASTER_NAME = 'CPRNN'
 
+BJRNN_PARAMS = {'input_size': 1,  # RNN parameters
+                'epochs': 1000,
+                'n_steps': 5,
+                'batch_size': 100,
+                'embedding_size': 20,
+                'max_steps': 10,
+                'output_size': 5,
+                'coverage': 0.9,
+                'lr': 0.01,
+                'mode': 'RNN'}
+
 
 def train_conformal_forecaster(experiment_mode='time-dependent',
                                epochs=1000,  # LSTM parameters
@@ -131,17 +142,6 @@ def train_bjrnn(noise_mode='time-dependent'):
         else:  # joint coverage
             return np.all(horizon_coverages, axis=0)
 
-    params = dict({"input_size": 1,  # RNN parameters
-                   "epochs": 1000,
-                   "n_steps": 5,
-                   "batch_size": 100,
-                   "embedding_size": 20,
-                   "max_steps": 10,
-                   "output_size": 5,
-                   "coverage": 0.9,
-                   "lr": 0.01,
-                   "mode": "RNN"})
-
     results = []
     for i in range(1, 6):
         with open('processed_data/synthetic_{}_raw_{}.pkl'.format(
@@ -152,7 +152,7 @@ def train_bjrnn(noise_mode='time-dependent'):
         X_train, Y_train = train_dataset
         X_test, Y_test = test_dataset
 
-        RNN_model = RNN(**params)
+        RNN_model = RNN(**BJRNN_PARAMS)
         RNN_model.fit(X_train, Y_train)
 
         RNN_model_ = RNN_uncertainty_wrapper(RNN_model)
