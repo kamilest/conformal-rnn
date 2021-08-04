@@ -120,6 +120,50 @@ class CoRNN(torch.nn.Module):
                 print(
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
+    def train_normaliser(self, train_loader):
+        normalising_rnn = torch.nn.RNN(input_size=self.input_size,
+                                       hidden_size=self.embedding_size,
+                                       batch_first=True)
+
+        normalising_out = torch.nn.Linear(self.embedding_size,
+                                          self.horizon * self.output_size)
+
+        # TODO tuning
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        criterion = torch.nn.MSELoss()
+
+        # TODO early stopping based on validation loss of the calibration set
+        for epoch in range(100):
+            train_loss = 0.
+
+            for sequences, targets, lengths in train_loader:
+                optimizer.zero_grad()
+
+                # Get the RNN multi-horizon forecast.
+                forecaster_out, _ = self(sequences)
+                lengths_mask = self.get_lengths_mask(sequences, lengths)
+
+                # Compute ln|y - \hat{y}|.
+                normalisation_target = \
+                    torch.log(torch.abs(targets - forecaster_out)) * \
+                    lengths_mask
+
+                # Normalising RNN learns to predict the normalisation target.
+                _, h_n = normalising_rnn(sequences.float())
+                out = normalising_out(h_n).reshape(-1, self.horizon,
+                                                   self.output_size)
+
+                loss = criterion(out.float(), normalisation_target.float())
+                loss.backward()
+
+                train_loss += loss.item()
+
+                optimizer.step()
+
+            mean_train_loss = train_loss / len(train_loader)
+            print('Epoch: {}\tNormalisation loss: {}'.format(epoch,
+                                                             mean_train_loss))
+
     def calibrate(self, calibration_dataset, n_train):
         """
         Computes the nonconformity scores for the calibration dataset.
