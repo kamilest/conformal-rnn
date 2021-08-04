@@ -101,12 +101,7 @@ class CoRNN(torch.nn.Module):
                 optimizer.zero_grad()
 
                 out, _ = self(sequences)
-
-                lengths_mask = torch.zeros(sequences.size(0), self.horizon,
-                                           sequences.size(2))
-                for i, l in enumerate(lengths):
-                    lengths_mask[i, :min(l, self.horizon), :] = 1
-                valid_out = lengths_mask * out
+                valid_out = out * self.get_lengths_mask(sequences, lengths)
 
                 loss = criterion(valid_out.float(), targets.float())
                 loss.backward()
