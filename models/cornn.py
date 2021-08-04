@@ -30,7 +30,7 @@ def coverage(intervals, target):
 
 class CoRNN(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
-                 error_rate=0.05, mode='LSTM', **kwargs):
+                 error_rate=0.05, mode='LSTM', normalise=True, **kwargs):
         super(CoRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
@@ -50,6 +50,19 @@ class CoRNN(torch.nn.Module):
                                                 batch_first=True)
         self.forecaster_out = torch.nn.Linear(embedding_size,
                                               horizon * output_size)
+
+        # Score normalisation network
+        self.normalise = normalise
+        if self.normalise:
+            self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
+                                                hidden_size=self.embedding_size,
+                                                batch_first=True)
+
+            self.normalising_out = torch.nn.Linear(self.embedding_size,
+                                                   self.horizon * self.output_size)
+        else:
+            self.normalising_rnn = None
+            self.normalising_out = None
 
         self.horizon = horizon
         self.output_size = output_size
