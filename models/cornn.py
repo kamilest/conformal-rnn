@@ -34,6 +34,11 @@ class CoRNN(torch.nn.Module):
         super(CoRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
+        self.input_size = input_size
+        self.embedding_size = embedding_size
+        self.horizon = horizon
+        self.output_size = output_size
+        self.alpha = error_rate
 
         # Main CoRNN network
         self.mode = mode
@@ -64,10 +69,6 @@ class CoRNN(torch.nn.Module):
         else:
             self.normalising_rnn = None
             self.normalising_out = None
-
-        self.horizon = horizon
-        self.output_size = output_size
-        self.alpha = error_rate
 
         self.n_train = None
         self.calibration_scores = None
@@ -135,7 +136,7 @@ class CoRNN(torch.nn.Module):
             out = self.normalising_out(h_n).reshape(-1, self.horizon,
                                                     self.output_size)
         else:
-            return 0
+            return torch.Tensor([0])
 
         return out
 
@@ -145,7 +146,7 @@ class CoRNN(torch.nn.Module):
         criterion = torch.nn.MSELoss()
 
         # TODO early stopping based on validation loss of the calibration set
-        for epoch in range(100):
+        for epoch in range(1000):
             train_loss = 0.
 
             for sequences, targets, lengths in train_loader:
@@ -171,8 +172,10 @@ class CoRNN(torch.nn.Module):
                 optimizer.step()
 
             mean_train_loss = train_loss / len(train_loader)
-            print('Epoch: {}\tNormalisation loss: {}'.format(epoch,
-                                                             mean_train_loss))
+            if epoch % 100 == 0:
+                print(
+                    'Epoch: {}\tNormalisation loss: {}'.format(epoch,
+                                                               mean_train_loss))
 
     def calibrate(self, calibration_dataset, n_train):
         """
