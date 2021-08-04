@@ -128,14 +128,17 @@ class CoRNN(torch.nn.Module):
                 print(
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
+    def normaliser_forward(self, sequences):
+        if self.normalise:
+            _, h_n = self.normalising_rnn(sequences.float())
+            out = self.normalising_out(h_n).reshape(-1, self.horizon,
+                                                    self.output_size)
+        else:
+            return 1
+
+        return out
+
     def train_normaliser(self, train_loader):
-        normalising_rnn = torch.nn.RNN(input_size=self.input_size,
-                                       hidden_size=self.embedding_size,
-                                       batch_first=True)
-
-        normalising_out = torch.nn.Linear(self.embedding_size,
-                                          self.horizon * self.output_size)
-
         # TODO tuning
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         criterion = torch.nn.MSELoss()
@@ -156,11 +159,8 @@ class CoRNN(torch.nn.Module):
                     torch.log(torch.abs(targets - forecaster_out)) * \
                     lengths_mask
 
-                # Normalising network learns to predict the normalisation
-                # target.
-                _, h_n = self.normalising_rnn(sequences.float())
-                out = self.normalising_out(h_n).reshape(-1, self.horizon,
-                                                        self.output_size)
+                # Normalising network estimates the normalisation target.
+                out = self.normaliser_forward(sequences)
 
                 loss = criterion(out.float(), normalisation_target.float())
                 loss.backward()
