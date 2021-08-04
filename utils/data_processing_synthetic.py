@@ -88,7 +88,7 @@ def create_autoregressive_data(n_samples=100,
     assert len(noise_profile) == seq_len
 
     Y = None  # Y stores the actual time series values generated from features X
-    if mode == "noise-sweep":
+    if mode == "static":
         Y = [[(autoregressive(X[k], w).reshape(seq_len, n_features) +
                np.random.normal(0, noise_profile[u],
                                 (seq_len, n_features))).reshape(seq_len, )
@@ -150,7 +150,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
 
     w = np.array([memory_factor ** k for k in range(np.max(sequence_lengths))])
 
-    if noise_mode == 'noise-sweep':
+    if noise_mode == 'static':
         noise_vars = [
             [noise_profile[(s * len(noise_profile)) // len(sequence_lengths)]] *
             sequence_lengths[s] for s in range(len(sequence_lengths))]
