@@ -134,7 +134,7 @@ class CoRNN(torch.nn.Module):
             out = self.normalising_out(h_n).reshape(-1, self.horizon,
                                                     self.output_size)
         else:
-            return 1
+            return 0
 
         return out
 
