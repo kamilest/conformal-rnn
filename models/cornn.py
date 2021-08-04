@@ -138,15 +138,16 @@ class CoRNN(torch.nn.Module):
                 forecaster_out, _ = self(sequences)
                 lengths_mask = self.get_lengths_mask(sequences, lengths)
 
-                # Compute ln|y - \hat{y}|.
+                # Compute normalisation target ln|y - \hat{y}|.
                 normalisation_target = \
                     torch.log(torch.abs(targets - forecaster_out)) * \
                     lengths_mask
 
-                # Normalising RNN learns to predict the normalisation target.
-                _, h_n = normalising_rnn(sequences.float())
-                out = normalising_out(h_n).reshape(-1, self.horizon,
-                                                   self.output_size)
+                # Normalising network learns to predict the normalisation
+                # target.
+                _, h_n = self.normalising_rnn(sequences.float())
+                out = self.normalising_out(h_n).reshape(-1, self.horizon,
+                                                        self.output_size)
 
                 loss = criterion(out.float(), normalisation_target.float())
                 loss.backward()
