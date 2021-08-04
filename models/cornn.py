@@ -35,6 +35,7 @@ class CoRNN(torch.nn.Module):
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
 
+        # Main CoRNN network
         self.mode = mode
         if self.mode == 'RNN':
             self.forecaster_rnn = torch.nn.RNN(input_size=input_size,
@@ -185,8 +186,13 @@ class CoRNN(torch.nn.Module):
             self.eval()
             for sequences, targets, lengths in calibration_loader:
                 out, _ = self(sequences)
+
+                log_normalising_score = self.normaliser_forward(sequences)
+                score = nonconformity(out, targets) / torch.exp(
+                    log_normalising_score)
+
                 # n_batches: [batch_size, horizon, output_size]
-                calibration_scores.append(nonconformity(out, targets))
+                calibration_scores.append(score)
 
         # [output_size, horizon, n_samples]
         self.calibration_scores = torch.vstack(calibration_scores).T
@@ -218,6 +224,11 @@ class CoRNN(torch.nn.Module):
 
         # Train the multi-horizon forecaster.
         self.train_forecaster(train_loader, epochs, lr)
+        # Train normalisation network.
+        if self.normalise:
+            self.train_normaliser(train_loader)
+            self.normalising_rnn.eval()
+            self.normalising_out.eval()
         # Collect calibration scores
         self.calibrate(calibration_dataset, n_train=len(train_dataset))
 
