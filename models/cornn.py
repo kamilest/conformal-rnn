@@ -30,11 +30,17 @@ def coverage(intervals, target):
 
 class CoRNN(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
-                 error_rate=0.05, mode='LSTM', **kwargs):
+                 error_rate=0.05, mode='LSTM', normalise=True, **kwargs):
         super(CoRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
+        self.input_size = input_size
+        self.embedding_size = embedding_size
+        self.horizon = horizon
+        self.output_size = output_size
+        self.alpha = error_rate
 
+        # Main CoRNN network
         self.mode = mode
         if self.mode == 'RNN':
             self.forecaster_rnn = torch.nn.RNN(input_size=input_size,
@@ -51,9 +57,18 @@ class CoRNN(torch.nn.Module):
         self.forecaster_out = torch.nn.Linear(embedding_size,
                                               horizon * output_size)
 
-        self.horizon = horizon
-        self.output_size = output_size
-        self.alpha = error_rate
+        # Score normalisation network
+        self.normalise = normalise
+        if self.normalise:
+            self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
+                                                hidden_size=self.embedding_size,
+                                                batch_first=True)
+
+            self.normalising_out = torch.nn.Linear(self.embedding_size,
+                                                   self.horizon * self.output_size)
+        else:
+            self.normalising_rnn = None
+            self.normalising_out = None
 
         self.n_train = None
         self.calibration_scores = None
@@ -78,6 +93,17 @@ class CoRNN(torch.nn.Module):
 
         return out, (h_n, c_n)
 
+    def get_lengths_mask(self, sequences, lengths):
+        """Returns the lengths mask indicating the positions where every
+        sequences in the batch are valid."""
+
+        lengths_mask = torch.zeros(sequences.size(0), self.horizon,
+                                   sequences.size(2))
+        for i, l in enumerate(lengths):
+            lengths_mask[i, :min(l, self.horizon), :] = 1
+
+        return lengths_mask
+
     def train_forecaster(self, train_loader, epochs, lr):
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         criterion = torch.nn.MSELoss()
@@ -90,12 +116,7 @@ class CoRNN(torch.nn.Module):
                 optimizer.zero_grad()
 
                 out, _ = self(sequences)
-
-                lengths_mask = torch.zeros(sequences.size(0), self.horizon,
-                                           sequences.size(2))
-                for i, l in enumerate(lengths):
-                    lengths_mask[i, :min(l, self.horizon), :] = 1
-                valid_out = lengths_mask * out
+                valid_out = out * self.get_lengths_mask(sequences, lengths)
 
                 loss = criterion(valid_out.float(), targets.float())
                 loss.backward()
@@ -109,6 +130,53 @@ class CoRNN(torch.nn.Module):
                 print(
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
+    def normaliser_forward(self, sequences):
+        if self.normalise:
+            _, h_n = self.normalising_rnn(sequences.float())
+            out = self.normalising_out(h_n).reshape(-1, self.horizon,
+                                                    self.output_size)
+        else:
+            return torch.Tensor([0])
+
+        return out
+
+    def train_normaliser(self, train_loader):
+        # TODO tuning
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        criterion = torch.nn.MSELoss()
+
+        # TODO early stopping based on validation loss of the calibration set
+        for epoch in range(1000):
+            train_loss = 0.
+
+            for sequences, targets, lengths in train_loader:
+                optimizer.zero_grad()
+
+                # Get the RNN multi-horizon forecast.
+                forecaster_out, _ = self(sequences)
+                lengths_mask = self.get_lengths_mask(sequences, lengths)
+
+                # Compute normalisation target ln|y - \hat{y}|.
+                normalisation_target = \
+                    torch.log(torch.abs(targets - forecaster_out)) * \
+                    lengths_mask
+
+                # Normalising network estimates the normalisation target.
+                out = self.normaliser_forward(sequences)
+
+                loss = criterion(out.float(), normalisation_target.float())
+                loss.backward()
+
+                train_loss += loss.item()
+
+                optimizer.step()
+
+            mean_train_loss = train_loss / len(train_loader)
+            if epoch % 100 == 0:
+                print(
+                    'Epoch: {}\tNormalisation loss: {}'.format(epoch,
+                                                               mean_train_loss))
+
     def calibrate(self, calibration_dataset, n_train):
         """
         Computes the nonconformity scores for the calibration dataset.
@@ -121,8 +189,13 @@ class CoRNN(torch.nn.Module):
             self.eval()
             for sequences, targets, lengths in calibration_loader:
                 out, _ = self(sequences)
+
+                log_normalising_score = self.normaliser_forward(sequences)
+                score = nonconformity(out, targets) / torch.exp(
+                    log_normalising_score)
+
                 # n_batches: [batch_size, horizon, output_size]
-                calibration_scores.append(nonconformity(out, targets))
+                calibration_scores.append(score)
 
         # [output_size, horizon, n_samples]
         self.calibration_scores = torch.vstack(calibration_scores).T
@@ -154,6 +227,11 @@ class CoRNN(torch.nn.Module):
 
         # Train the multi-horizon forecaster.
         self.train_forecaster(train_loader, epochs, lr)
+        # Train normalisation network.
+        if self.normalise:
+            self.train_normaliser(train_loader)
+            self.normalising_rnn.eval()
+            self.normalising_out.eval()
         # Collect calibration scores
         self.calibrate(calibration_dataset, n_train=len(train_dataset))
 
