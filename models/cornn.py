@@ -78,6 +78,17 @@ class CoRNN(torch.nn.Module):
 
         return out, (h_n, c_n)
 
+    def get_lengths_mask(self, sequences, lengths):
+        """Returns the lengths mask indicating the positions where every
+        sequences in the batch are valid."""
+
+        lengths_mask = torch.zeros(sequences.size(0), self.horizon,
+                                   sequences.size(2))
+        for i, l in enumerate(lengths):
+            lengths_mask[i, :min(l, self.horizon), :] = 1
+
+        return lengths_mask
+
     def train_forecaster(self, train_loader, epochs, lr):
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         criterion = torch.nn.MSELoss()
