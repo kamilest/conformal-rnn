@@ -130,15 +130,18 @@ class CoRNN(torch.nn.Module):
                 print(
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
-    def normaliser_forward(self, sequences):
+    def normaliser_forward(self, sequences, train=False, beta=1e-2):
         if self.normalise:
             _, h_n = self.normalising_rnn(sequences.float())
             out = self.normalising_out(h_n).reshape(-1, self.horizon,
                                                     self.output_size)
         else:
-            return torch.Tensor([0])
+            return torch.Tensor([1])
 
-        return out
+        if train:
+            return out
+        else:
+            return torch.exp(out) + beta
 
     def train_normaliser(self, train_loader):
         # TODO tuning
@@ -162,7 +165,7 @@ class CoRNN(torch.nn.Module):
                     lengths_mask
 
                 # Normalising network estimates the normalisation target.
-                out = self.normaliser_forward(sequences)
+                out = self.normaliser_forward(sequences, train=True)
 
                 loss = criterion(out.float(), normalisation_target.float())
                 loss.backward()
@@ -190,9 +193,8 @@ class CoRNN(torch.nn.Module):
             for sequences, targets, lengths in calibration_loader:
                 out, _ = self(sequences)
 
-                log_normalising_score = self.normaliser_forward(sequences)
-                score = nonconformity(out, targets) / torch.exp(
-                    log_normalising_score)
+                score = nonconformity(out, targets) / self.normaliser_forward(
+                    sequences, train=False)
 
                 # n_batches: [batch_size, horizon, output_size]
                 calibration_scores.append(score)
