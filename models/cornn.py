@@ -28,9 +28,17 @@ def coverage(intervals, target):
     return horizon_coverages, torch.all(horizon_coverages, dim=1)
 
 
+def get_critical_scores(calibration_scores, q):
+    return torch.tensor([[torch.quantile(
+        position_calibration_scores,
+        q=q)
+        for position_calibration_scores in feature_calibration_scores]
+        for feature_calibration_scores in calibration_scores]).T
+
+
 class CoRNN(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
-                 error_rate=0.05, mode='LSTM', normalise=True, **kwargs):
+                 error_rate=0.05, mode='LSTM', **kwargs):
         super(CoRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
@@ -58,22 +66,20 @@ class CoRNN(torch.nn.Module):
                                               horizon * output_size)
 
         # Score normalisation network
-        self.normalise = normalise
-        if self.normalise:
-            self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
-                                                hidden_size=self.embedding_size,
-                                                batch_first=True)
+        self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
+                                            hidden_size=self.embedding_size,
+                                            batch_first=True)
 
-            self.normalising_out = torch.nn.Linear(self.embedding_size,
-                                                   self.horizon * self.output_size)
-        else:
-            self.normalising_rnn = None
-            self.normalising_out = None
+        self.normalising_out = torch.nn.Linear(self.embedding_size,
+                                               self.horizon * self.output_size)
 
         self.n_train = None
         self.calibration_scores = None
+        self.normalised_calibration_scores = None
         self.critical_calibration_scores = None
+        self.normalised_critical_calibration_scores = None
         self.corrected_critical_calibration_scores = None
+        self.normalised_corrected_critical_calibration_scores = None
 
     def forward(self, x, state=None):
         if state is not None:
@@ -131,14 +137,15 @@ class CoRNN(torch.nn.Module):
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
     def normaliser_forward(self, sequences):
-        if self.normalise:
-            _, h_n = self.normalising_rnn(sequences.float())
-            out = self.normalising_out(h_n).reshape(-1, self.horizon,
-                                                    self.output_size)
-        else:
-            return torch.Tensor([0])
-
+        """Returns an estimate of normalisation target ln|y - hat{y}|."""
+        _, h_n = self.normalising_rnn(sequences.float())
+        out = self.normalising_out(h_n).reshape(-1, self.horizon,
+                                                self.output_size)
         return out
+
+    def normaliser_score(self, sequences, beta=0):
+        out = self.normaliser_forward(sequences)
+        return torch.exp(out) + beta
 
     def train_normaliser(self, train_loader):
         # TODO tuning
@@ -184,38 +191,45 @@ class CoRNN(torch.nn.Module):
         calibration_loader = torch.utils.data.DataLoader(calibration_dataset,
                                                          batch_size=1)
         calibration_scores = []
+        normalised_calibration_scores = []
 
         with torch.set_grad_enabled(False):
             self.eval()
             for sequences, targets, lengths in calibration_loader:
                 out, _ = self(sequences)
 
-                log_normalising_score = self.normaliser_forward(sequences)
-                score = nonconformity(out, targets) / torch.exp(
-                    log_normalising_score)
+                score = nonconformity(out, targets)
+                normalised_score = score / self.normaliser_score(
+                    sequences)
 
                 # n_batches: [batch_size, horizon, output_size]
                 calibration_scores.append(score)
+                normalised_calibration_scores.append(normalised_score)
 
         # [output_size, horizon, n_samples]
         self.calibration_scores = torch.vstack(calibration_scores).T
+        self.normalised_calibration_scores = torch.vstack(
+            normalised_calibration_scores).T
 
         # [horizon, output_size]
-        self.critical_calibration_scores = torch.tensor([[torch.quantile(
-            position_calibration_scores,
+        self.critical_calibration_scores = get_critical_scores(
+            calibration_scores=self.calibration_scores,
             q=1 - self.alpha * n_train / (n_train + 1))
-            for position_calibration_scores in feature_calibration_scores]
-            for feature_calibration_scores in self.calibration_scores]).T
+        self.normalised_critical_calibration_scores = get_critical_scores(
+            calibration_scores=self.normalised_calibration_scores,
+            q=1 - self.alpha * n_train / (n_train + 1))
 
         # Bonferroni corrected calibration scores.
         # [horizon, output_size]
         corrected_alpha = self.alpha / self.horizon
-        self.corrected_critical_calibration_scores = torch.tensor([[
-            torch.quantile(
-                position_calibration_scores,
+        self.corrected_critical_calibration_scores = get_critical_scores(
+            calibration_scores=self.calibration_scores,
+            q=1 - corrected_alpha * n_train / (n_train + 1))
+
+        self.normalised_corrected_critical_calibration_scores = \
+            get_critical_scores(
+                calibration_scores=self.normalised_calibration_scores,
                 q=1 - corrected_alpha * n_train / (n_train + 1))
-            for position_calibration_scores in feature_calibration_scores]
-            for feature_calibration_scores in self.calibration_scores]).T
 
         self.n_train = n_train
 
@@ -228,37 +242,52 @@ class CoRNN(torch.nn.Module):
         # Train the multi-horizon forecaster.
         self.train_forecaster(train_loader, epochs, lr)
         # Train normalisation network.
-        if self.normalise:
-            self.train_normaliser(train_loader)
-            self.normalising_rnn.eval()
-            self.normalising_out.eval()
+        self.train_normaliser(train_loader)
+        self.normalising_rnn.eval()
+        self.normalising_out.eval()
         # Collect calibration scores
         self.calibrate(calibration_dataset, n_train=len(train_dataset))
 
-    def predict(self, x, state=None, corrected=True):
+    def predict(self, x, state=None, corrected=True, normalised=True):
         """Forecasts the time series with conformal uncertainty intervals."""
         out, hidden = self(x, state)
 
         if not corrected:
             # [batch_size, horizon, n_outputs]
-            lower = out - self.critical_calibration_scores
-            upper = out + self.critical_calibration_scores
+            if normalised:
+                score = self.normaliser_score(x)
+                lower = out - self.normalised_critical_calibration_scores * score
+                upper = out + \
+                        self.normalised_critical_calibration_scores * score
+            else:
+                lower = out - self.critical_calibration_scores
+                upper = out + self.critical_calibration_scores
         else:
             # [batch_size, horizon, n_outputs]
-            lower = out - self.corrected_critical_calibration_scores
-            upper = out + self.corrected_critical_calibration_scores
+            if normalised:
+                score = self.normaliser_score(x)
+                lower = out - \
+                        self.normalised_corrected_critical_calibration_scores * \
+                        score
+                upper = out + \
+                        self.normalised_corrected_critical_calibration_scores * \
+                        score
+            else:
+                lower = out - self.corrected_critical_calibration_scores
+                upper = out + self.corrected_critical_calibration_scores
 
         # [batch_size, 2, horizon, n_outputs]
         return torch.stack((lower, upper), dim=1), hidden
 
-    def evaluate_coverage(self, test_dataset, corrected=True):
+    def evaluate_coverage(self, test_dataset, corrected=True, normalised=True):
         self.eval()
 
         independent_coverages, joint_coverages, intervals = [], [], []
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
 
         for sequences, targets, lengths in test_loader:
-            batch_intervals, _ = self.predict(sequences, corrected=corrected)
+            batch_intervals, _ = self.predict(sequences, corrected=corrected,
+                                              normalised=normalised)
             intervals.append(batch_intervals)
             independent_coverage, joint_coverage = coverage(batch_intervals,
                                                             targets)
@@ -274,7 +303,8 @@ class CoRNN(torch.nn.Module):
 
         return independent_coverages, joint_coverages, intervals
 
-    def get_point_predictions_and_errors(self, test_dataset, corrected=True):
+    def get_point_predictions_and_errors(self, test_dataset, corrected=True,
+                                         normalised=True):
         self.eval()
 
         point_predictions = []
@@ -283,7 +313,8 @@ class CoRNN(torch.nn.Module):
 
         for sequences, targets, lengths in test_loader:
             point_prediction, _ = self(sequences)
-            batch_intervals, _ = self.predict(sequences, corrected=corrected)
+            batch_intervals, _ = self.predict(sequences, corrected=corrected,
+                                              normalised=normalised)
             point_predictions.append(point_prediction)
             errors.append(torch.nn.functional.l1_loss(point_prediction,
                                                       targets,
