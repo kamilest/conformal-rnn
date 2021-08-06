@@ -28,6 +28,14 @@ def coverage(intervals, target):
     return horizon_coverages, torch.all(horizon_coverages, dim=1)
 
 
+def get_critical_scores(calibration_scores, q):
+    return torch.tensor([[torch.quantile(
+        position_calibration_scores,
+        q=q)
+        for position_calibration_scores in feature_calibration_scores]
+        for feature_calibration_scores in calibration_scores]).T
+
+
 class CoRNN(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  error_rate=0.05, mode='LSTM', normalise=True, **kwargs):
@@ -204,21 +212,24 @@ class CoRNN(torch.nn.Module):
         self.calibration_scores = torch.vstack(calibration_scores).T
 
         # [horizon, output_size]
-        self.critical_calibration_scores = torch.tensor([[torch.quantile(
-            position_calibration_scores,
+        self.critical_calibration_scores = get_critical_scores(
+            calibration_scores=self.calibration_scores,
             q=1 - self.alpha * n_train / (n_train + 1))
-            for position_calibration_scores in feature_calibration_scores]
-            for feature_calibration_scores in self.calibration_scores]).T
+        self.normalised_critical_calibration_scores = get_critical_scores(
+            calibration_scores=self.normalised_calibration_scores,
+            q=1 - self.alpha * n_train / (n_train + 1))
 
         # Bonferroni corrected calibration scores.
         # [horizon, output_size]
         corrected_alpha = self.alpha / self.horizon
-        self.corrected_critical_calibration_scores = torch.tensor([[
-            torch.quantile(
-                position_calibration_scores,
+        self.corrected_critical_calibration_scores = get_critical_scores(
+            calibration_scores=self.calibration_scores,
+            q=1 - corrected_alpha * n_train / (n_train + 1))
+
+        self.normalised_corrected_critical_calibration_scores = \
+            get_critical_scores(
+                calibration_scores=self.normalised_calibration_scores,
                 q=1 - corrected_alpha * n_train / (n_train + 1))
-            for position_calibration_scores in feature_calibration_scores]
-            for feature_calibration_scores in self.calibration_scores]).T
 
         self.n_train = n_train
 
