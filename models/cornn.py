@@ -130,7 +130,7 @@ class CoRNN(torch.nn.Module):
                 print(
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
-    def normaliser_forward(self, sequences, train=False, beta=1e-2):
+    def normaliser_forward(self, sequences, train=False, beta=5):
         if self.normalise:
             _, h_n = self.normalising_rnn(sequences.float())
             out = self.normalising_out(h_n).reshape(-1, self.horizon,
@@ -149,7 +149,7 @@ class CoRNN(torch.nn.Module):
         criterion = torch.nn.MSELoss()
 
         # TODO early stopping based on validation loss of the calibration set
-        for epoch in range(1000):
+        for epoch in range(500):
             train_loss = 0.
 
             for sequences, targets, lengths in train_loader:
@@ -237,18 +237,29 @@ class CoRNN(torch.nn.Module):
         # Collect calibration scores
         self.calibrate(calibration_dataset, n_train=len(train_dataset))
 
-    def predict(self, x, state=None, corrected=True):
+    def predict(self, x, state=None, corrected=True, normalised=True):
         """Forecasts the time series with conformal uncertainty intervals."""
         out, hidden = self(x, state)
 
         if not corrected:
             # [batch_size, horizon, n_outputs]
-            lower = out - self.critical_calibration_scores
-            upper = out + self.critical_calibration_scores
+            # TODO option for predicting with unnormalised scores
+            if self.normalise:
+                score = self.normaliser_forward(x)
+                lower = out - self.critical_calibration_scores * score
+                upper = out + self.critical_calibration_scores * score
+            else:
+                lower = out - self.critical_calibration_scores
+                upper = out + self.critical_calibration_scores
         else:
             # [batch_size, horizon, n_outputs]
-            lower = out - self.corrected_critical_calibration_scores
-            upper = out + self.corrected_critical_calibration_scores
+            if self.normalise:
+                score = self.normaliser_forward(x)
+                lower = out - self.corrected_critical_calibration_scores * score
+                upper = out + self.corrected_critical_calibration_scores * score
+            else:
+                lower = out - self.corrected_critical_calibration_scores
+                upper = out + self.corrected_critical_calibration_scores
 
         # [batch_size, 2, horizon, n_outputs]
         return torch.stack((lower, upper), dim=1), hidden
