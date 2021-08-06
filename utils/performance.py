@@ -14,10 +14,11 @@ from models.rnn import RNN
 from utils.data_processing_synthetic import *
 
 
-def evaluate_cornn_performance(model, test_dataset, correct_conformal=True):
+def evaluate_cornn_performance(model, test_dataset, correct_conformal=True,
+                               normalised=True):
     independent_coverages, joint_coverages, intervals = \
         model.evaluate_coverage(
-            test_dataset, corrected=correct_conformal)
+            test_dataset, corrected=correct_conformal, normalised=normalised)
     mean_independent_coverage = torch.mean(
         independent_coverages.float(),
         dim=0)
@@ -26,7 +27,8 @@ def evaluate_cornn_performance(model, test_dataset, correct_conformal=True):
     interval_widths = (intervals[:, 1] - intervals[:, 0]).squeeze()
     point_predictions, errors = \
         model.get_point_predictions_and_errors(test_dataset,
-                                               corrected=correct_conformal)
+                                               corrected=correct_conformal,
+                                               normalised=normalised)
 
     results = {'Point predictions': point_predictions,
                'Errors': errors,
