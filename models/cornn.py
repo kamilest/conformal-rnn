@@ -130,18 +130,19 @@ class CoRNN(torch.nn.Module):
                 print(
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
-    def normaliser_forward(self, sequences, train=False, beta=5):
+    def normaliser_forward(self, sequences):
+        """Returns an estimate of normalisation target ln|y - hat{y}|."""
         if self.normalise:
             _, h_n = self.normalising_rnn(sequences.float())
             out = self.normalising_out(h_n).reshape(-1, self.horizon,
                                                     self.output_size)
+            return out
         else:
             return torch.Tensor([1])
 
-        if train:
-            return out
-        else:
-            return torch.exp(out) + beta
+    def normaliser_score(self, sequences, beta=5):
+        out = self.normaliser_forward(sequences)
+        return torch.exp(out) + beta
 
     def train_normaliser(self, train_loader):
         # TODO tuning
@@ -165,7 +166,7 @@ class CoRNN(torch.nn.Module):
                     lengths_mask
 
                 # Normalising network estimates the normalisation target.
-                out = self.normaliser_forward(sequences, train=True)
+                out = self.normaliser_forward(sequences)
 
                 loss = criterion(out.float(), normalisation_target.float())
                 loss.backward()
@@ -193,8 +194,8 @@ class CoRNN(torch.nn.Module):
             for sequences, targets, lengths in calibration_loader:
                 out, _ = self(sequences)
 
-                score = nonconformity(out, targets) / self.normaliser_forward(
-                    sequences, train=False)
+                score = nonconformity(out, targets) / self.normaliser_score(
+                    sequences)
 
                 # n_batches: [batch_size, horizon, output_size]
                 calibration_scores.append(score)
@@ -245,7 +246,7 @@ class CoRNN(torch.nn.Module):
             # [batch_size, horizon, n_outputs]
             # TODO option for predicting with unnormalised scores
             if self.normalise:
-                score = self.normaliser_forward(x)
+                score = self.normaliser_score(x)
                 lower = out - self.critical_calibration_scores * score
                 upper = out + self.critical_calibration_scores * score
             else:
@@ -254,7 +255,7 @@ class CoRNN(torch.nn.Module):
         else:
             # [batch_size, horizon, n_outputs]
             if self.normalise:
-                score = self.normaliser_forward(x)
+                score = self.normaliser_score(x)
                 lower = out - self.corrected_critical_calibration_scores * score
                 upper = out + self.corrected_critical_calibration_scores * score
             else:
