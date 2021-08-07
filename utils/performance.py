@@ -75,7 +75,6 @@ def get_bjrnn_coverage(intervals_, target, coverage_mode='joint'):
 
 
 def evaluate_bjrnn_performance(model, X_test, Y_test):
-    # TODO check/unify/generalise
     coverages = []
     intervals = []
 
@@ -102,7 +101,6 @@ def evaluate_bjrnn_performance(model, X_test, Y_test):
 
 def evaluate_performance(model, X_test, Y_test, coverage=.9, error_threshold=1):
     if type(model) is RNN_uncertainty_wrapper:
-        # TODO check evaluation from train_bjrnn
         y_pred, y_l_approx, y_u_approx = model.predict(X_test,
                                                        coverage=coverage)
 
@@ -114,7 +112,6 @@ def evaluate_performance(model, X_test, Y_test, coverage=.9, error_threshold=1):
         y_pred = [x.reshape(-1, 1) for x in y_pred]
         y_u_approx = [x.reshape(-1, 1) for x in y_u_approx]
         y_l_approx = [x.reshape(-1, 1) for x in y_l_approx]
-
 
     elif type(model) is DPRNN:
         y_pred, y_std = model.predict(X_test, alpha=1 - coverage)
