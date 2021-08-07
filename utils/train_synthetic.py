@@ -19,7 +19,7 @@ from utils.performance import evaluate_performance, evaluate_cornn_performance
 CONFORMAL_FORECASTER_NAME = 'CPRNN'
 
 DEFAULT_SYNTHETIC_PARAMS = {'input_size': 1,  # RNN parameters
-                            'epochs': 1000,
+                            'epochs': 10,
                             'n_steps': 500,
                             'batch_size': 100,
                             'embedding_size': 20,
@@ -67,6 +67,7 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
             print('Training {}'.format(baseline))
 
             for i, raw_sequence_dataset in enumerate(raw_sequence_datasets):
+                print('Training dataset {}'.format(i))
                 # Parameters
                 params = DEFAULT_SYNTHETIC_PARAMS if params is None else params
 
@@ -79,12 +80,11 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
                 params['output_size'] = params['horizon']
 
                 if baseline == CONFORMAL_FORECASTER_NAME:
-                    params['epochs'] = 10
+                    params['epochs'] = 1000
 
                     train_dataset, calibration_dataset, test_dataset = \
                         get_synthetic_dataset(raw_sequence_dataset,
                                               conformal=True)
-
                     model = CoRNN(embedding_size=params['embedding_size'],
                                   horizon=params['horizon'],
                                   error_rate=1 - params['coverage'],
