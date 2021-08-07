@@ -64,14 +64,49 @@ def plot_1D_uncertainty(results, Y_test, data_index):
              Marker="o")
 
 
+def get_bjrnn_coverage(intervals_, target, coverage_mode='joint'):
+    lower, upper = intervals_[0], intervals_[1]
+
+    horizon_coverages = np.logical_and(target >= lower, target <= upper)
+    if coverage_mode == 'independent':
+        return horizon_coverages
+    else:  # joint coverage
+        return np.all(horizon_coverages, axis=0)
+
+
+def evaluate_bjrnn_performance(model, X_test, Y_test):
+    # TODO check/unify/generalise
+    coverages = []
+    intervals = []
+
+    for j, (x, y) in enumerate(zip(X_test, Y_test)):
+        y_pred, y_l_approx, y_u_approx = model.predict(x)
+        interval = np.array([y_l_approx[0], y_u_approx[0]])
+        covers = get_bjrnn_coverage(interval, y.flatten().detach().numpy())
+        coverages.append(covers)
+        intervals.append(interval)
+        if j % 50 == 0:
+            print('Example {}'.format(j))
+
+    mean_coverage = np.mean(coverages)
+    np_intervals = np.array(intervals)
+    interval_widths = (np_intervals[:, 1] - np_intervals[:, 0]).mean(axis=0)
+
+    result = {'coverages': coverages,
+              'intervals': intervals,
+              'mean_coverage': mean_coverage,
+              'interval_widths': interval_widths}
+
+    return result
+
+
 def evaluate_performance(model, X_test, Y_test, coverage=.9, error_threshold=1):
     if type(model) is RNN_uncertainty_wrapper:
-
+        # TODO check evaluation from train_bjrnn
         y_pred, y_l_approx, y_u_approx = model.predict(X_test,
                                                        coverage=coverage)
 
     elif type(model) is QRNN:
-
         y_u_approx, y_l_approx = model.predict(X_test)
         y_pred = [(y_l_approx[k] + y_u_approx[k]) / 2 for k in
                   range(len(y_u_approx))]
@@ -82,7 +117,6 @@ def evaluate_performance(model, X_test, Y_test, coverage=.9, error_threshold=1):
 
 
     elif type(model) is DPRNN:
-
         y_pred, y_std = model.predict(X_test, alpha=1 - coverage)
         y_u_approx = [y_pred[k] + y_std[k] for k in range(len(y_pred))]
         y_l_approx = [y_pred[k] - y_std[k] for k in range(len(y_pred))]
