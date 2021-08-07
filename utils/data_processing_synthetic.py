@@ -195,13 +195,13 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
     return X, Y, sequence_lengths
 
 
-def create_raw_sequences(length=10, horizon=5,
-                         n_train=2000, n_test=500,
-                         cached=True,
-                         mean=1,
-                         variance=2,
-                         memory_factor=0.9,
-                         noise_mode='long-horizon'):
+def generate_raw_sequences(length=10, horizon=5,
+                           n_train=2000, n_test=500,
+                           cached=True,
+                           mean=1,
+                           variance=2,
+                           memory_factor=0.9,
+                           noise_mode='long-horizon'):
     # Time series parameters
     periodicity = None
     amplitude = 1
