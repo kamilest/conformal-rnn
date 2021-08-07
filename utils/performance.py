@@ -207,7 +207,6 @@ def collect_synthetic_results(noise_vars, params, coverage=0.9, seq_len=5,
                                                     mode="time-dependent")
 
         result_dict[model_names[u]].append(
-            evaluate_performance(RNN_model_, X_test, Y_test, coverage=coverage,
-                                 error_threshold="Auto"))
+            evaluate_performance(RNN_model_, X_test, Y_test, coverage=coverage))
 
     return result_dict
