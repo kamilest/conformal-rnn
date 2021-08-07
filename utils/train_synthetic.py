@@ -9,183 +9,148 @@ import torch
 
 from models.bjrnn import RNN_uncertainty_wrapper
 from models.cornn import CoRNN
+from models.dprnn import DPRNN
+from models.qrnn import QRNN
 from models.rnn import RNN
-from utils.data_processing_synthetic import get_synthetic_splits, \
-    EXPERIMENT_MODES, HORIZONS
-from utils.performance import evaluate_performance, evaluate_cornn_performance
+from utils.data_processing_synthetic import \
+    EXPERIMENT_MODES, HORIZONS, generate_raw_sequences, get_synthetic_dataset
+from utils.performance import evaluate_performance, evaluate_cornn_performance, \
+    evaluate_bjrnn_performance
 
 CONFORMAL_FORECASTER_NAME = 'CPRNN'
 
-BJRNN_PARAMS = {'input_size': 1,  # RNN parameters
-                'epochs': 1000,
-                'n_steps': 5,
-                'batch_size': 100,
-                'embedding_size': 20,
-                'max_steps': 10,
-                'output_size': 5,
-                'coverage': 0.9,
-                'lr': 0.01,
-                'mode': 'RNN'}
+DEFAULT_SYNTHETIC_PARAMS = {'input_size': 1,  # RNN parameters
+                            'epochs': 1000,
+                            'n_steps': 5,
+                            'batch_size': 100,
+                            'embedding_size': 20,
+                            'max_steps': 10,
+                            'output_size': 5,
+                            'coverage': 0.9,
+                            'lr': 0.01,
+                            'mode': 'RNN'}
+
+BASELINES = [CONFORMAL_FORECASTER_NAME, 'BJRNN', 'QRNN', 'DPRNN']
+
+BASELINE_CLASSES = {'DPRNN': DPRNN,
+                    'QRNN': QRNN}
 
 
-def train_conformal_forecaster(experiment_mode='time-dependent',
-                               epochs=1000,  # LSTM parameters
-                               batch_size=100,
-                               embedding_size=20,
-                               coverage=0.9,
-                               lr=0.01,
-                               retrain=False,
-                               save_model=False,
-                               save_results=True,
-                               rnn_mode='LSTM'):
+def run_synthetic_experiments(params=None, baselines=None, retrain=False,
+                              generate_datasets=True,
+                              experiment='time-dependent', length=None,
+                              correct_conformal=True, save_model=False,
+                              save_results=True, rnn_mode='RNN', seed=None):
+    # Models
+    baselines = BASELINES if baselines is None else \
+        baselines
+    for baseline in baselines:
+        assert baseline in BASELINES, 'Invalid baselines'
+
+    # Datasets
+    assert experiment in EXPERIMENT_MODES.keys(), 'Invalid experiment'
+
+    baseline_results = dict({CONFORMAL_FORECASTER_NAME: [],
+                             CONFORMAL_FORECASTER_NAME + '-normalised': [],
+                             'BJRNN': [],
+                             'QRNN': [],
+                             'DPRNN': []})
+
+    if seed is not None:
+        retrain = True
+    torch.manual_seed(0 if seed is None else seed)
+
     if retrain:
-        datasets = get_synthetic_splits(noise_mode=experiment_mode,
-                                        conformal=True)
-        results = []
+        raw_sequence_datasets = generate_raw_sequences(noise_mode=experiment,
+                                                       cached=not
+                                                       generate_datasets)
+        for baseline in baselines:
+            print('Training {}'.format(baseline))
 
-        for i, dataset in enumerate(datasets):
-            if experiment_mode == 'long-horizon':
-                horizon = EXPERIMENT_MODES[experiment_mode][i]
-            else:
-                horizon = HORIZONS[experiment_mode]
+            for i, raw_sequence_dataset in enumerate(raw_sequence_datasets):
+                if experiment == 'long-horizon':
+                    horizon = EXPERIMENT_MODES[experiment][i]
+                else:
+                    horizon = HORIZONS[experiment]
 
-            train_dataset, calibration_dataset, test_dataset = dataset
+                # Parameters
+                params = DEFAULT_SYNTHETIC_PARAMS if params is None else params
 
-            model = CoRNN(embedding_size=embedding_size, horizon=horizon,
-                          error_rate=1 - coverage, mode=rnn_mode)
-            model.fit(train_dataset, calibration_dataset, epochs=epochs, lr=lr,
-                      batch_size=batch_size)
-            if save_model:
-                torch.save(model, 'saved_models/{}_{}_{}_{}.pt'.format(
-                    experiment_mode, CONFORMAL_FORECASTER_NAME, model.mode,
-                    EXPERIMENT_MODES[experiment_mode][i]))
+                params['max_steps'] = length
+                params['output_size'] = horizon
 
-            result = evaluate_cornn_performance(model, test_dataset)
-            results.append(result)
+                if baseline == CONFORMAL_FORECASTER_NAME:
+                    train_dataset, calibration_dataset, test_dataset = \
+                        get_synthetic_dataset(raw_sequence_dataset,
+                                              conformal=True)
+                    params['epochs'] = 10
+                    # TODO ?
+                    params['n_steps'] = 10
 
-        if save_results:
-            with open('saved_results/{}_{}.pkl'.format(experiment_mode,
-                                                       CONFORMAL_FORECASTER_NAME),
-                      'wb') as f:
-                pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
+                    model = CoRNN(embedding_size=params['embedding_size'],
+                                  horizon=horizon,
+                                  error_rate=1 - params['coverage'],
+                                  mode=rnn_mode)
+                    model.fit(train_dataset, calibration_dataset,
+                              epochs=params['epochs'], lr=params['lr'],
+                              batch_size=params['batch_size'])
+                    if save_model:
+                        torch.save(model, 'saved_models/{}_{}_{}_{}.pt'.format(
+                            experiment, CONFORMAL_FORECASTER_NAME, model.mode,
+                            EXPERIMENT_MODES[experiment][i]))
+
+                    result = evaluate_cornn_performance(model, test_dataset,
+                                                        correct_conformal,
+                                                        normalised=False)
+                    result_normalised = \
+                        evaluate_cornn_performance(model, test_dataset,
+                                                   correct_conformal,
+                                                   normalised=True)
+                    baseline_results[CONFORMAL_FORECASTER_NAME].append(result)
+                    baseline_results[CONFORMAL_FORECASTER_NAME +
+                                     '-normalised'].append(
+                        result_normalised)
+                else:
+                    train_dataset, test_dataset = \
+                        get_synthetic_dataset(raw_sequence_dataset,
+                                              conformal=False)
+
+                    if baseline == 'BJRNN':
+                        RNN_model = RNN(**params)
+                        RNN_model.fit(train_dataset[0], train_dataset[1])
+
+                        model = RNN_uncertainty_wrapper(RNN_model)
+
+                        result = evaluate_bjrnn_performance(model,
+                                                            test_dataset[0],
+                                                            test_dataset[1])
+
+                    else:
+                        model = BASELINE_CLASSES[baseline](**params)
+
+                        model.fit(train_dataset[0], train_dataset[1])
+
+                        result = evaluate_performance(model, test_dataset[0],
+                                                      test_dataset[1],
+                                                      coverage=params['coverage'],
+                                                      error_threshold='Auto')
+                    del model
+                    gc.collect()
+
+                    baseline_results[baseline].append(result)
+
+            if save_results:
+                with open('saved_results/{}_{}.pkl'.format(experiment,
+                                                           baseline),
+                          'wb') as f:
+                    pickle.dump(baseline_results[baseline], f,
+                                protocol=pickle.HIGHEST_PROTOCOL)
+
     else:
-        with open('saved_results/{}_{}.pkl'.format(experiment_mode,
-                                                   CONFORMAL_FORECASTER_NAME),
-                  'rb') as f:
-            results = pickle.load(f)
+        for baseline in baselines:
+            with open('saved_results/{}_{}.pkl'.format(experiment, baseline),
+                      'rb') as f:
+                results = pickle.load(f)
+            baseline_results[baseline] = results
 
-    return results
-
-
-def train_blockwise_forecaster(noise_mode='time-dependent',
-                               epochs=10,  # LSTM parameters
-                               batch_size=100,
-                               embedding_size=20,
-                               coverage=0.9,
-                               lr=0.01,
-                               retrain=False):
-    if retrain:
-        params = {'epochs': epochs,
-                  'batch_size': batch_size,
-                  'embedding_size': embedding_size,
-                  'coverage': coverage,
-                  'lr': lr,
-                  'n_steps': 10,
-                  'input_size': 1,
-                  'mode': 'LSTM'}
-
-        # TODO separate parameters / clear documentation
-        if noise_mode == 'periodic':
-            length = 20
-            horizon = 10
-        else:
-            length = 10
-            horizon = 5
-
-        params['max_steps'] = length
-        params['output_size'] = horizon
-
-        datasets = get_synthetic_splits(conformal=False, horizon=horizon)
-        results = []
-        for dataset in datasets:
-            train_dataset, _, test_dataset = dataset
-
-            model = RNN(**params)
-            model.fit(train_dataset[0], train_dataset[1])
-            model_ = RNN_uncertainty_wrapper(model)
-            result = evaluate_performance(model_, test_dataset[0],
-                                          test_dataset[1],
-                                          coverage=params['coverage'],
-                                          error_threshold="Auto")
-
-            results.append(result)
-            del model_
-
-            with open('saved_results/{}_{}.pkl'.format(noise_mode, 'BJRNN'),
-                      'wb') as f:
-                pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
-    else:
-        with open('saved_results/{}_{}.pkl'.format(noise_mode, 'BJRNN'),
-                  'rb') as f:
-            results = pickle.load(f)
-
-    return results
-
-
-def train_bjrnn(noise_mode='time-dependent'):
-    def get_coverage(intervals_, target, coverage_mode='joint'):
-        lower, upper = intervals_[0], intervals_[1]
-
-        horizon_coverages = np.logical_and(target >= lower, target <= upper)
-        if coverage_mode == 'independent':
-            return horizon_coverages
-        else:  # joint coverage
-            return np.all(horizon_coverages, axis=0)
-
-    results = []
-    for i in range(1, 6):
-        with open('processed_data/synthetic_{}_raw_{}.pkl'.format(
-                noise_mode, i),
-                'rb') as f:
-            train_dataset, calibration_dataset, test_dataset = \
-                pickle.load(f)
-        X_train, Y_train = train_dataset
-        X_test, Y_test = test_dataset
-
-        RNN_model = RNN(**BJRNN_PARAMS)
-        RNN_model.fit(X_train, Y_train)
-
-        RNN_model_ = RNN_uncertainty_wrapper(RNN_model)
-
-        coverages = []
-        intervals = []
-
-        for j, (x, y) in enumerate(zip(X_test, Y_test)):
-            y_pred, y_l_approx, y_u_approx = RNN_model_.predict(x)
-            interval = np.array([y_l_approx[0], y_u_approx[0]])
-            covers = get_coverage(interval, y.flatten().detach().numpy())
-            coverages.append(covers)
-            intervals.append(interval)
-            if j % 50 == 0:
-                print('Example {}'.format(j))
-
-        mean_coverage = np.mean(coverages)
-        np_intervals = np.array(intervals)
-        interval_widths = (np_intervals[:, 1] - np_intervals[:, 0]).mean(axis=0)
-
-        result = {'coverages': coverages,
-                  'intervals': intervals,
-                  'mean_coverage': mean_coverage,
-                  'interval_widths': interval_widths}
-
-        print('Model {}:\tcoverage: {}\twidths: {}'.format(i, result[
-            'mean_coverage'], result['interval_widths']))
-        results.append(result)
-        del RNN_model
-        del RNN_model_
-        gc.collect()
-
-    with open('saved_results/{}_BJRNN.pkl'.format(noise_mode), 'wb') as output:
-        pickle.dump(results, output, pickle.HIGHEST_PROTOCOL)
-
-    return results
+    return baseline_results
