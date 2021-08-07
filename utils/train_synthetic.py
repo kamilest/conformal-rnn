@@ -27,7 +27,7 @@ DEFAULT_SYNTHETIC_PARAMS = {'input_size': 1,  # RNN parameters
                             'output_size': 5,
                             'coverage': 0.9,
                             'lr': 0.01,
-                            'mode': 'RNN'}
+                            'mode': 'LSTM'}
 
 BASELINES = [CONFORMAL_FORECASTER_NAME, 'BJRNN', 'QRNN', 'DPRNN']
 
