@@ -143,7 +143,7 @@ class CoRNN(torch.nn.Module):
                                                 self.output_size)
         return out
 
-    def normaliser_score(self, sequences, beta=0):
+    def normaliser_score(self, sequences, beta=1):
         out = self.normaliser_forward(sequences)
         return torch.exp(out) + beta
 
@@ -153,7 +153,7 @@ class CoRNN(torch.nn.Module):
         criterion = torch.nn.MSELoss()
 
         # TODO early stopping based on validation loss of the calibration set
-        for epoch in range(1000):
+        for epoch in range(100):
             train_loss = 0.
 
             for sequences, targets, lengths in train_loader:
