@@ -77,61 +77,6 @@ def train_conformal_forecaster(experiment_mode='time-dependent',
     return results
 
 
-def train_blockwise_forecaster(noise_mode='time-dependent',
-                               epochs=10,  # LSTM parameters
-                               batch_size=100,
-                               embedding_size=20,
-                               coverage=0.9,
-                               lr=0.01,
-                               retrain=False):
-    if retrain:
-        params = {'epochs': epochs,
-                  'batch_size': batch_size,
-                  'embedding_size': embedding_size,
-                  'coverage': coverage,
-                  'lr': lr,
-                  'n_steps': 10,
-                  'input_size': 1,
-                  'mode': 'LSTM'}
-
-        # TODO separate parameters / clear documentation
-        if noise_mode == 'periodic':
-            length = 20
-            horizon = 10
-        else:
-            length = 10
-            horizon = 5
-
-        params['max_steps'] = length
-        params['output_size'] = horizon
-
-        datasets = get_synthetic_splits(conformal=False, horizon=horizon)
-        results = []
-        for dataset in datasets:
-            train_dataset, _, test_dataset = dataset
-
-            model = RNN(**params)
-            model.fit(train_dataset[0], train_dataset[1])
-            model_ = RNN_uncertainty_wrapper(model)
-            result = evaluate_performance(model_, test_dataset[0],
-                                          test_dataset[1],
-                                          coverage=params['coverage'],
-                                          error_threshold="Auto")
-
-            results.append(result)
-            del model_
-
-            with open('saved_results/{}_{}.pkl'.format(noise_mode, 'BJRNN'),
-                      'wb') as f:
-                pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
-    else:
-        with open('saved_results/{}_{}.pkl'.format(noise_mode, 'BJRNN'),
-                  'rb') as f:
-            results = pickle.load(f)
-
-    return results
-
-
 def train_bjrnn(noise_mode='time-dependent'):
     def get_coverage(intervals_, target, coverage_mode='joint'):
         lower, upper = intervals_[0], intervals_[1]
