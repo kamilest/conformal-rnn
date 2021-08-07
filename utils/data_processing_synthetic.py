@@ -350,7 +350,7 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
 
 
 def create_raw_sequences(length=10, horizon=5,
-                         n_train=1000, n_calibration=1000, n_test=500,
+                         n_train=2000, n_test=500,
                          cached=True,
                          mean=1,
                          variance=2,
@@ -392,7 +392,7 @@ def create_raw_sequences(length=10, horizon=5,
 
             X_train, Y_train, sequence_lengths_train = \
                 generate_autoregressive_forecast_dataset(
-                    n_samples=n_train + n_calibration,
+                    n_samples=n_train,
                     seq_len=length,
                     horizon=horizon,
                     periodicity=periodicity,
@@ -402,6 +402,7 @@ def create_raw_sequences(length=10, horizon=5,
                     memory_factor=memory_factor,
                     noise_profile=noise_profile,
                     dynamic_sequence_lengths=dynamic_sequence_lengths)
+            sequence_lengths_train = sequence_lengths_train - horizon
 
             X_test, Y_test, sequence_lengths_test = \
                 generate_autoregressive_forecast_dataset(
@@ -416,6 +417,7 @@ def create_raw_sequences(length=10, horizon=5,
                     noise_mode=noise_mode,
                     noise_profile=noise_profile,
                     dynamic_sequence_lengths=dynamic_sequence_lengths)
+            sequence_lengths_test = sequence_lengths_test - horizon
 
             with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
                     noise_mode, i),
