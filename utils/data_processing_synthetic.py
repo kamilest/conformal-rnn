@@ -347,3 +347,86 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
                 datasets.append(((X_train, Y_train), None, (X_test, Y_test)))
 
     return datasets
+
+
+def create_raw_sequences(length=10, horizon=5,
+                         n_train=1000, n_calibration=1000, n_test=500,
+                         cached=True,
+                         mean=1,
+                         variance=2,
+                         memory_factor=0.9,
+                         noise_mode='long-horizon'):
+    # Time series parameters
+    periodicity = None
+    amplitude = 1
+    dynamic_sequence_lengths = False
+
+    if cached:
+        raw_sequences = []
+        for i in EXPERIMENT_MODES[noise_mode]:
+            with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
+                    noise_mode, i),
+                    'rb') as f:
+                raw_train_sequences, raw_test_sequences = \
+                    pickle.load(f)
+            raw_sequences.append((raw_train_sequences, raw_test_sequences))
+    else:
+        raw_sequences = []
+
+        for i in EXPERIMENT_MODES[noise_mode]:
+            if noise_mode == 'time-dependent':
+                noise_profile = [0.1 * i * k for k in range(length + horizon)]
+            elif noise_mode == 'static':
+                noise_profile = [0.1 * i for _ in range(length + horizon)]
+            elif noise_mode == 'long-horizon':
+                noise_profile = [0.1 * k for k in range(length + horizon)]
+                mean = 1
+                variance = 1
+                horizon = 100
+            else:  # noise_mode == 'periodic':
+                noise_profile = [0.5 * k for k in range(length + horizon)]
+                length = 20
+                horizon = 10
+                periodicity = i
+                amplitude = 5
+
+            X_train, Y_train, sequence_lengths_train = \
+                generate_autoregressive_forecast_dataset(
+                    n_samples=n_train + n_calibration,
+                    seq_len=length,
+                    horizon=horizon,
+                    periodicity=periodicity,
+                    amplitude=amplitude,
+                    X_mean=mean,
+                    X_variance=variance,
+                    memory_factor=memory_factor,
+                    noise_profile=noise_profile,
+                    dynamic_sequence_lengths=dynamic_sequence_lengths)
+
+            X_test, Y_test, sequence_lengths_test = \
+                generate_autoregressive_forecast_dataset(
+                    n_samples=n_test,
+                    seq_len=length,
+                    horizon=horizon,
+                    periodicity=periodicity,
+                    amplitude=amplitude,
+                    X_mean=mean,
+                    X_variance=variance,
+                    memory_factor=memory_factor,
+                    noise_mode=noise_mode,
+                    noise_profile=noise_profile,
+                    dynamic_sequence_lengths=dynamic_sequence_lengths)
+
+            with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
+                    noise_mode, i),
+                    'wb') as f:
+                pickle.dump(((X_train, Y_train, sequence_lengths_train),
+                             (X_test, Y_test, sequence_lengths_test)),
+                            f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+
+            raw_sequences.append(((X_train, Y_train, sequence_lengths_train),
+                                  (X_test, Y_test, sequence_lengths_test)))
+
+    return raw_sequences
+
