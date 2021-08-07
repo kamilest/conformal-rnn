@@ -14,7 +14,8 @@ from models.rnn import RNN
 from utils.data_processing_synthetic import \
     EXPERIMENT_MODES, HORIZONS, generate_raw_sequences, get_synthetic_dataset, \
     MAX_SEQUENCE_LENGTHS
-from utils.performance import evaluate_performance, evaluate_cornn_performance
+from utils.performance import evaluate_performance, evaluate_cornn_performance, \
+    evaluate_synthetic_performance
 
 CONFORMAL_FORECASTER_NAME = 'CPRNN'
 
@@ -121,10 +122,10 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
                         model = BASELINE_CLASSES[baseline](**params)
                         model.fit(train_dataset[0], train_dataset[1])
 
-                    result = evaluate_performance(model, test_dataset[0],
+                    result = evaluate_synthetic_performance(model,
+                                                          test_dataset[0],
                                                   test_dataset[1],
-                                                  coverage=params['coverage'],
-                                                  error_threshold='Auto')
+                                                  coverage=params['coverage'])
                     del model
                     gc.collect()
 
