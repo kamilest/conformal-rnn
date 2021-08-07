@@ -29,6 +29,13 @@ HORIZONS = {
 }
 
 
+MAX_SEQUENCE_LENGTHS = {
+    'periodic': 20,
+    'time-dependent': 10,
+    'static': 10,
+    'long-horizon': 10
+}
+
 def autoregressive(X_gen, w):
     """ Generates the autoregressive component of a single time series
     example. """
