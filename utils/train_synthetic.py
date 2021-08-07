@@ -39,7 +39,6 @@ BASELINE_CLASSES = {'DPRNN': DPRNN,
 def run_synthetic_experiments(params=None, baselines=None, retrain=False,
                               generate_datasets=True,
                               experiment='time-dependent', length=None,
-                              horizon=None,
                               correct_conformal=True, save_model=False,
                               save_results=True, rnn_mode='RNN', seed=None):
     # Models
