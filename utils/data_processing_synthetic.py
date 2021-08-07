@@ -434,60 +434,58 @@ def create_raw_sequences(length=10, horizon=5,
 
 
 def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5):
-    synthetic_datasets = []
-    for raw_seq in raw_sequences:
+    (X_train, Y_train, sequence_lengths_train), \
+    (X_test, Y_test, sequence_lengths_test) = raw_sequences
+
+    if conformal:
         (X_train, Y_train, sequence_lengths_train), \
-        (X_test, Y_test, sequence_lengths_test) = raw_seq
+        (X_calibration, Y_calibration, sequence_lengths_calibration) = \
+            split_train_dataset(X_train, Y_train, sequence_lengths_train,
+                                n_calibration)
 
-        if conformal:
-            (X_train, Y_train, sequence_lengths_train), \
-            (X_calibration, Y_calibration, sequence_lengths_calibration) = \
-                split_train_dataset(X_train, Y_train, sequence_lengths_train,
-                                    n_calibration)
+        # X: [n_samples, max_seq_len, n_features]
+        X_train_tensor = torch.nn.utils.rnn.pad_sequence(X_train,
+                                                         batch_first=True).float()
 
-            # X: [n_samples, max_seq_len, n_features]
-            X_train_tensor = torch.nn.utils.rnn.pad_sequence(X_train,
-                                                             batch_first=True).float()
+        # Y: [n_samples, horizon, n_features]
+        Y_train_tensor = torch.nn.utils.rnn.pad_sequence(Y_train,
+                                                         batch_first=True).float()
 
-            # Y: [n_samples, horizon, n_features]
-            Y_train_tensor = torch.nn.utils.rnn.pad_sequence(Y_train,
-                                                             batch_first=True).float()
+        train_dataset = AutoregressiveForecastDataset(X_train_tensor,
+                                                      Y_train_tensor,
+                                                      sequence_lengths_train)
 
-            train_dataset = AutoregressiveForecastDataset(X_train_tensor,
-                                                          Y_train_tensor,
-                                                          sequence_lengths_train)
+        X_calibration_tensor = torch.nn.utils.rnn.pad_sequence(
+            X_calibration,
+            batch_first=True).float()
 
-            X_calibration_tensor = torch.nn.utils.rnn.pad_sequence(
-                X_calibration,
-                batch_first=True).float()
+        # Y: [n_samples, horizon, n_features]
+        Y_calibration_tensor = torch.nn.utils.rnn.pad_sequence(
+            Y_calibration, batch_first=True).float()
 
-            # Y: [n_samples, horizon, n_features]
-            Y_calibration_tensor = torch.nn.utils.rnn.pad_sequence(
-                Y_calibration, batch_first=True).float()
+        calibration_dataset = AutoregressiveForecastDataset(
+            X_calibration_tensor,
+            Y_calibration_tensor,
+            sequence_lengths_calibration)
 
-            calibration_dataset = AutoregressiveForecastDataset(
-                X_calibration_tensor,
-                Y_calibration_tensor,
-                sequence_lengths_calibration)
+        # X: [n_samples, max_seq_len, n_features]
+        X_test_tensor = torch.nn.utils.rnn.pad_sequence(X_test,
+                                                        batch_first=True).float()
 
-            # X: [n_samples, max_seq_len, n_features]
-            X_test_tensor = torch.nn.utils.rnn.pad_sequence(X_test,
-                                                            batch_first=True).float()
+        # Y: [n_samples, horizon, n_features]
+        Y_test_tensor = torch.nn.utils.rnn.pad_sequence(Y_test,
+                                                        batch_first=True).float()
 
-            # Y: [n_samples, horizon, n_features]
-            Y_test_tensor = torch.nn.utils.rnn.pad_sequence(Y_test,
-                                                            batch_first=True).float()
+        test_dataset = AutoregressiveForecastDataset(X_test_tensor,
+                                                     Y_test_tensor,
+                                                     sequence_lengths_test)
 
-            test_dataset = AutoregressiveForecastDataset(X_test_tensor,
-                                                         Y_test_tensor,
-                                                         sequence_lengths_test)
+        synthetic_dataset = (train_dataset, calibration_dataset,
+                             test_dataset)
+    else:
+        synthetic_dataset = (X_train, Y_train), (X_test, Y_test)
 
-            synthetic_datasets.append((train_dataset, calibration_dataset,
-                                       test_dataset))
-        else:
-            synthetic_datasets.append(((X_train, Y_train), (X_test, Y_test)))
-
-    return synthetic_datasets
+    return synthetic_dataset
 
 
 def split_train_dataset(X_train, Y_train, sequence_lengths_train,
