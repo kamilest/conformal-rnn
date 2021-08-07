@@ -4,7 +4,6 @@
 import gc
 import pickle
 
-import numpy as np
 import torch
 
 from models.bjrnn import RNN_uncertainty_wrapper
@@ -13,15 +12,15 @@ from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from models.rnn import RNN
 from utils.data_processing_synthetic import \
-    EXPERIMENT_MODES, HORIZONS, generate_raw_sequences, get_synthetic_dataset
-from utils.performance import evaluate_performance, evaluate_cornn_performance, \
-    evaluate_bjrnn_performance
+    EXPERIMENT_MODES, HORIZONS, generate_raw_sequences, get_synthetic_dataset, \
+    MAX_SEQUENCE_LENGTHS
+from utils.performance import evaluate_performance, evaluate_cornn_performance
 
 CONFORMAL_FORECASTER_NAME = 'CPRNN'
 
 DEFAULT_SYNTHETIC_PARAMS = {'input_size': 1,  # RNN parameters
                             'epochs': 1000,
-                            'n_steps': 5,
+                            'n_steps': 500,
                             'batch_size': 100,
                             'embedding_size': 20,
                             'max_steps': 10,
@@ -38,7 +37,7 @@ BASELINE_CLASSES = {'DPRNN': DPRNN,
 
 def run_synthetic_experiments(params=None, baselines=None, retrain=False,
                               generate_datasets=True,
-                              experiment='time-dependent', length=None,
+                              experiment='time-dependent',
                               correct_conformal=True, save_model=False,
                               save_results=True, rnn_mode='RNN', seed=None):
     # Models
@@ -68,27 +67,26 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
             print('Training {}'.format(baseline))
 
             for i, raw_sequence_dataset in enumerate(raw_sequence_datasets):
-                if experiment == 'long-horizon':
-                    horizon = EXPERIMENT_MODES[experiment][i]
-                else:
-                    horizon = HORIZONS[experiment]
-
                 # Parameters
                 params = DEFAULT_SYNTHETIC_PARAMS if params is None else params
 
-                params['max_steps'] = length
-                params['output_size'] = horizon
+                if experiment == 'long-horizon':
+                    params['horizon'] = EXPERIMENT_MODES[experiment][i]
+                else:
+                    params['horizon'] = HORIZONS[experiment]
+
+                params['max_steps'] = MAX_SEQUENCE_LENGTHS[experiment]
+                params['output_size'] = params['horizon']
 
                 if baseline == CONFORMAL_FORECASTER_NAME:
+                    params['epochs'] = 10
+
                     train_dataset, calibration_dataset, test_dataset = \
                         get_synthetic_dataset(raw_sequence_dataset,
                                               conformal=True)
-                    params['epochs'] = 10
-                    # TODO ?
-                    params['n_steps'] = 10
 
                     model = CoRNN(embedding_size=params['embedding_size'],
-                                  horizon=horizon,
+                                  horizon=params['horizon'],
                                   error_rate=1 - params['coverage'],
                                   mode=rnn_mode)
                     model.fit(train_dataset, calibration_dataset,
@@ -118,11 +116,9 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
                     if baseline == 'BJRNN':
                         RNN_model = RNN(**params)
                         RNN_model.fit(train_dataset[0], train_dataset[1])
-
                         model = RNN_uncertainty_wrapper(RNN_model)
                     else:
                         model = BASELINE_CLASSES[baseline](**params)
-
                         model.fit(train_dataset[0], train_dataset[1])
 
                     result = evaluate_performance(model, test_dataset[0],
