@@ -195,36 +195,29 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
     return X, Y, sequence_lengths
 
 
-def get_synthetic_splits(length=10, horizon=5, conformal=True,
-                         n_train=1000, n_calibration=1000, n_test=500,
-                         cached=True,
-                         mean=1,
-                         variance=2,
-                         memory_factor=0.9,
-                         noise_mode='long-horizon'):
+def generate_raw_sequences(length=10, horizon=5,
+                           n_train=2000, n_test=500,
+                           cached=True,
+                           mean=1,
+                           variance=2,
+                           memory_factor=0.9,
+                           noise_mode='long-horizon'):
     # Time series parameters
     periodicity = None
     amplitude = 1
     dynamic_sequence_lengths = False
 
     if cached:
-        datasets = []
+        raw_sequences = []
         for i in EXPERIMENT_MODES[noise_mode]:
-            if conformal:
-                with open('processed_data/synthetic_{}_conformal_{}.pkl'.format(
-                        noise_mode, i),
-                        'rb') as f:
-                    train_dataset, calibration_dataset, test_dataset = \
-                        pickle.load(f)
-            else:
-                with open('processed_data/synthetic_{}_raw_{}.pkl'.format(
-                        noise_mode, i),
-                        'rb') as f:
-                    train_dataset, calibration_dataset, test_dataset = \
-                        pickle.load(f)
-            datasets.append((train_dataset, calibration_dataset, test_dataset))
+            with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
+                    noise_mode, i),
+                    'rb') as f:
+                raw_train_sequences, raw_test_sequences = \
+                    pickle.load(f)
+            raw_sequences.append((raw_train_sequences, raw_test_sequences))
     else:
-        datasets = []
+        raw_sequences = []
 
         for i in EXPERIMENT_MODES[noise_mode]:
             if noise_mode == 'time-dependent':
@@ -255,49 +248,7 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
                     memory_factor=memory_factor,
                     noise_profile=noise_profile,
                     dynamic_sequence_lengths=dynamic_sequence_lengths)
-
-            # X: [n_samples, max_seq_len, n_features]
-            X_train_tensor = torch.nn.utils.rnn.pad_sequence(X_train,
-                                                             batch_first=True).float()
-
-            # Y: [n_samples, horizon, n_features]
-            Y_train_tensor = torch.nn.utils.rnn.pad_sequence(Y_train,
-                                                             batch_first=True).float()
-
             sequence_lengths_train = sequence_lengths_train - horizon
-            train_dataset = AutoregressiveForecastDataset(X_train_tensor,
-                                                          Y_train_tensor,
-                                                          sequence_lengths_train)
-
-            X_calibration, Y_calibration, sequence_lengths_calibration = \
-                generate_autoregressive_forecast_dataset(
-                    n_samples=n_calibration,
-                    seq_len=length,
-                    horizon=horizon,
-                    periodicity=periodicity,
-                    amplitude=amplitude,
-                    X_mean=mean,
-                    X_variance=variance,
-                    memory_factor=memory_factor,
-                    noise_mode=noise_mode,
-                    noise_profile=noise_profile,
-                    dynamic_sequence_lengths=dynamic_sequence_lengths)
-
-            # X: [n_samples, max_seq_len, n_features]
-            X_calibration_tensor = torch.nn.utils.rnn.pad_sequence(
-                X_calibration,
-                batch_first=True).float()
-
-            # Y: [n_samples, horizon, n_features]
-            Y_calibration_tensor = torch.nn.utils.rnn.pad_sequence(
-                Y_calibration,
-                batch_first=True).float()
-
-            sequence_lengths_calibration = sequence_lengths_calibration - horizon
-            calibration_dataset = AutoregressiveForecastDataset(
-                X_calibration_tensor,
-                Y_calibration_tensor,
-                sequence_lengths_calibration)
 
             X_test, Y_test, sequence_lengths_test = \
                 generate_autoregressive_forecast_dataset(
@@ -312,38 +263,94 @@ def get_synthetic_splits(length=10, horizon=5, conformal=True,
                     noise_mode=noise_mode,
                     noise_profile=noise_profile,
                     dynamic_sequence_lengths=dynamic_sequence_lengths)
+            sequence_lengths_test = sequence_lengths_test - horizon
 
-            # X: [n_samples, max_seq_len, n_features]
-            X_test_tensor = torch.nn.utils.rnn.pad_sequence(X_test,
-                                                            batch_first=True).float()
-
-            # Y: [n_samples, horizon, n_features]
-            Y_test_tensor = torch.nn.utils.rnn.pad_sequence(Y_test,
-                                                            batch_first=True).float()
-
-            sequence_lengths_test = sequence_lengths_train - horizon
-            test_dataset = AutoregressiveForecastDataset(X_test_tensor,
-                                                         Y_test_tensor,
-                                                         sequence_lengths_test)
-
-            with open('processed_data/synthetic_{}_conformal_{}.pkl'.format(
+            with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
                     noise_mode, i),
                     'wb') as f:
-                pickle.dump((train_dataset, calibration_dataset, test_dataset),
+                pickle.dump(((X_train, Y_train, sequence_lengths_train),
+                             (X_test, Y_test, sequence_lengths_test)),
                             f,
                             protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open('processed_data/synthetic_{}_raw_{}.pkl'.format(
-                    noise_mode, i),
-                    'wb') as f:
-                pickle.dump(((X_train, Y_train), None, (X_test, Y_test)),
-                            f,
-                            protocol=pickle.HIGHEST_PROTOCOL)
+            raw_sequences.append(((X_train, Y_train, sequence_lengths_train),
+                                  (X_test, Y_test, sequence_lengths_test)))
 
-            if conformal:
-                datasets.append(
-                    (train_dataset, calibration_dataset, test_dataset))
-            else:
-                datasets.append(((X_train, Y_train), None, (X_test, Y_test)))
+    return raw_sequences
 
-    return datasets
+
+def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5):
+    (X_train, Y_train, sequence_lengths_train), \
+    (X_test, Y_test, sequence_lengths_test) = raw_sequences
+
+    if conformal:
+        (X_train, Y_train, sequence_lengths_train), \
+        (X_calibration, Y_calibration, sequence_lengths_calibration) = \
+            split_train_dataset(X_train, Y_train, sequence_lengths_train,
+                                n_calibration)
+
+        # X: [n_samples, max_seq_len, n_features]
+        X_train_tensor = torch.nn.utils.rnn.pad_sequence(X_train,
+                                                         batch_first=True).float()
+
+        # Y: [n_samples, horizon, n_features]
+        Y_train_tensor = torch.nn.utils.rnn.pad_sequence(Y_train,
+                                                         batch_first=True).float()
+
+        train_dataset = AutoregressiveForecastDataset(X_train_tensor,
+                                                      Y_train_tensor,
+                                                      sequence_lengths_train)
+
+        X_calibration_tensor = torch.nn.utils.rnn.pad_sequence(
+            X_calibration,
+            batch_first=True).float()
+
+        # Y: [n_samples, horizon, n_features]
+        Y_calibration_tensor = torch.nn.utils.rnn.pad_sequence(
+            Y_calibration, batch_first=True).float()
+
+        calibration_dataset = AutoregressiveForecastDataset(
+            X_calibration_tensor,
+            Y_calibration_tensor,
+            sequence_lengths_calibration)
+
+        # X: [n_samples, max_seq_len, n_features]
+        X_test_tensor = torch.nn.utils.rnn.pad_sequence(X_test,
+                                                        batch_first=True).float()
+
+        # Y: [n_samples, horizon, n_features]
+        Y_test_tensor = torch.nn.utils.rnn.pad_sequence(Y_test,
+                                                        batch_first=True).float()
+
+        test_dataset = AutoregressiveForecastDataset(X_test_tensor,
+                                                     Y_test_tensor,
+                                                     sequence_lengths_test)
+
+        synthetic_dataset = (train_dataset, calibration_dataset,
+                             test_dataset)
+    else:
+        synthetic_dataset = (X_train, Y_train), (X_test, Y_test)
+
+    return synthetic_dataset
+
+
+def split_train_dataset(X_train, Y_train, sequence_lengths_train,
+                        n_calibration):
+    """ Splits the train dataset into training and calibration sets. """
+    n_train = len(X_train)
+    idx_perm = np.random.RandomState(seed=0).permutation(n_train)
+    idx_calibration = idx_perm[:int(n_train * n_calibration)]
+    idx_train = idx_perm[int(n_train * n_calibration):]
+
+    X_calibration = [X_train[i] for i in idx_calibration]
+    Y_calibration = [Y_train[i] for i in idx_calibration]
+    sequence_lengths_calibration = [sequence_lengths_train[i] for i in
+                                    idx_calibration]
+
+    X_train = [X_train[i] for i in idx_train]
+    Y_train = [Y_train[i] for i in idx_train]
+    sequence_lengths_train = [sequence_lengths_train[i] for i in
+                              idx_train]
+
+    return (X_train, Y_train, sequence_lengths_train), \
+           (X_calibration, Y_calibration, sequence_lengths_calibration)
