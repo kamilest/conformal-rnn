@@ -120,20 +120,15 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
                         RNN_model.fit(train_dataset[0], train_dataset[1])
 
                         model = RNN_uncertainty_wrapper(RNN_model)
-
-                        result = evaluate_bjrnn_performance(model,
-                                                            test_dataset[0],
-                                                            test_dataset[1])
-
                     else:
                         model = BASELINE_CLASSES[baseline](**params)
 
                         model.fit(train_dataset[0], train_dataset[1])
 
-                        result = evaluate_performance(model, test_dataset[0],
-                                                      test_dataset[1],
-                                                      coverage=params['coverage'],
-                                                      error_threshold='Auto')
+                    result = evaluate_performance(model, test_dataset[0],
+                                                  test_dataset[1],
+                                                  coverage=params['coverage'],
+                                                  error_threshold='Auto')
                     del model
                     gc.collect()
 
