@@ -78,46 +78,6 @@ def seasonal(duration, periodicity, amplitude=1., harmonics=1,
     return series[-duration:].reshape(-1, 1)  # Discard burn in
 
 
-def create_autoregressive_data(n_samples=100,
-                               seq_len=6,
-                               n_features=1,
-                               X_m=1,
-                               X_v=2,
-                               noise_profile=None,
-                               memory_factor=0.9,
-                               mode="time-dependent",
-                               random_state=None):
-    if random_state is None:
-        random_state = np.random.RandomState(0)
-
-    # Create the input features
-    X = [random_state.normal(X_m, X_v, (seq_len, n_features)) for _ in
-         range(n_samples)]
-    w = np.array([memory_factor ** k for k in range(seq_len)])
-
-    if noise_profile is None:
-        # default increasing noise profile
-        noise_profile = np.array(
-            [1 / (seq_len - 1) * k for k in range(seq_len)])
-
-    assert len(noise_profile) == seq_len
-
-    Y = None  # Y stores the actual time series values generated from features X
-    if mode == "static":
-        Y = [[(autoregressive(X[k], w).reshape(seq_len, n_features) +
-               random_state.normal(0, noise_profile[u],
-                                   (seq_len, n_features))).reshape(seq_len, )
-              for k in range(n_samples)] for u in range(len(noise_profile))]
-
-    elif mode == "time-dependent":
-        Y = [(autoregressive(X[k], w).reshape(seq_len, n_features) + (
-            random_state.normal(loc=0.0, scale=np.array(noise_profile)))
-              .reshape(-1, n_features)).reshape(seq_len, )
-             for k in range(n_samples)]
-
-    return X, Y
-
-
 class AutoregressiveForecastDataset(torch.utils.data.Dataset):
     """Synthetic autoregressive forecast dataset."""
 
@@ -147,8 +107,9 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              harmonics=1,
                                              dynamic_sequence_lengths=False,
                                              horizon=10,
-                                             seed=0):
-    random_state = np.random.RandomState(seed)
+                                             random_state=None):
+    if random_state is None:
+        random_state = np.random.RandomState(0)
 
     seq_len = max(seq_len, horizon)
 
@@ -240,6 +201,7 @@ def generate_raw_sequences(length=10, horizon=5,
             raw_sequences.append((raw_train_sequences, raw_test_sequences))
     else:
         raw_sequences = []
+        random_state = np.random.RandomState(seed)
 
         for i in EXPERIMENT_MODES[experiment]:
             if experiment == 'time-dependent':
@@ -270,7 +232,7 @@ def generate_raw_sequences(length=10, horizon=5,
                     memory_factor=memory_factor,
                     noise_profile=noise_profile,
                     dynamic_sequence_lengths=dynamic_sequence_lengths,
-                    seed=seed)
+                    random_state=random_state)
             sequence_lengths_train = sequence_lengths_train - horizon
 
             X_test, Y_test, sequence_lengths_test = \
@@ -286,7 +248,7 @@ def generate_raw_sequences(length=10, horizon=5,
                     noise_mode=experiment,
                     noise_profile=noise_profile,
                     dynamic_sequence_lengths=dynamic_sequence_lengths,
-                    seed=seed)
+                    random_state=random_state)
             sequence_lengths_test = sequence_lengths_test - horizon
 
             with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
