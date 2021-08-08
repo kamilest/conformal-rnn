@@ -84,7 +84,7 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
 
                     train_dataset, calibration_dataset, test_dataset = \
                         get_synthetic_dataset(raw_sequence_dataset,
-                                              conformal=True)
+                                              conformal=True, seed=seed)
                     model = CoRNN(embedding_size=params['embedding_size'],
                                   horizon=params['horizon'],
                                   error_rate=1 - params['coverage'],
