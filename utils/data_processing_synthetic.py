@@ -360,7 +360,7 @@ def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5,
 
 
 def split_train_dataset(X_train, Y_train, sequence_lengths_train,
-                        n_calibration, seed=None):
+                        n_calibration, seed=0):
     """ Splits the train dataset into training and calibration sets. """
     n_train = len(X_train)
     idx_perm = np.random.RandomState(seed).permutation(n_train)
