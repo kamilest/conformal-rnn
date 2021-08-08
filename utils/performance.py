@@ -47,16 +47,6 @@ def evaluate_cornn_performance(model, test_dataset, correct_conformal=True,
     return results
 
 
-def get_bjrnn_coverage(intervals_, target, coverage_mode='joint'):
-    lower, upper = intervals_[0], intervals_[1]
-
-    horizon_coverages = np.logical_and(target >= lower, target <= upper)
-    if coverage_mode == 'independent':
-        return horizon_coverages
-    else:  # joint coverage
-        return np.all(horizon_coverages, axis=0)
-
-
 def evaluate_performance(model, X_test, Y_test, coverage=.9):
     if type(model) is RNN_uncertainty_wrapper:
         y_pred, y_l_approx, y_u_approx = model.predict(X_test,
