@@ -74,49 +74,6 @@ def get_bjrnn_coverage(intervals_, target, coverage_mode='joint'):
         return np.all(horizon_coverages, axis=0)
 
 
-def evaluate_synthetic_performance(model, X_test, Y_test, coverage=.9):
-    coverages = []
-    intervals = []
-
-    for j, (x, y) in enumerate(zip(X_test, Y_test)):
-        if type(model) is RNN_uncertainty_wrapper:
-            y_pred, y_l_approx, y_u_approx = model.predict(X_test,
-                                                           coverage=coverage)
-        elif type(model) is QRNN:
-            y_u_approx, y_l_approx = model.predict(X_test)
-            y_pred = [(y_l_approx[k] + y_u_approx[k]) / 2 for k in
-                      range(len(y_u_approx))]
-
-            y_pred = [x.reshape(-1, 1) for x in y_pred]
-            y_u_approx = [x.reshape(-1, 1) for x in y_u_approx]
-            y_l_approx = [x.reshape(-1, 1) for x in y_l_approx]
-        elif type(model) is DPRNN:
-            y_pred, y_std = model.predict(X_test, alpha=1 - coverage)
-            y_u_approx = [y_pred[k] + y_std[k] for k in range(len(y_pred))]
-            y_l_approx = [y_pred[k] - y_std[k] for k in range(len(y_pred))]
-
-            y_pred = [x.reshape(-1, 1) for x in y_pred]
-            y_u_approx = [x.reshape(-1, 1) for x in y_u_approx]
-            y_l_approx = [x.reshape(-1, 1) for x in y_l_approx]
-
-        interval = np.array([y_l_approx[0], y_u_approx[0]])
-        covers = get_bjrnn_coverage(interval, y.flatten().detach().numpy())
-        coverages.append(covers)
-        intervals.append(interval)
-        if j % 50 == 0:
-            print('Example {}'.format(j))
-
-    mean_coverage = np.mean(coverages)
-    np_intervals = np.array(intervals)
-    interval_widths = (np_intervals[:, 1] - np_intervals[:, 0]).mean(axis=0)
-
-    result = {'coverages': coverages,
-              'intervals': intervals,
-              'mean_coverage': mean_coverage,
-              'interval_widths': interval_widths}
-
-    return result
-
 def evaluate_performance(model, X_test, Y_test, coverage=.9):
     if type(model) is RNN_uncertainty_wrapper:
         y_pred, y_l_approx, y_u_approx = model.predict(X_test,
@@ -145,7 +102,7 @@ def evaluate_performance(model, X_test, Y_test, coverage=.9):
     upper = np.array(y_u_approx).squeeze()
     lower = np.array(y_l_approx).squeeze()
     pred = np.array(y_pred).squeeze()
-    target = np.array(Y_test)
+    target = np.array([t.numpy() for t in Y_test]).squeeze()
 
     results["Point predictions"] = np.array(y_pred)
     results["Upper limit"] = np.array(y_u_approx)
