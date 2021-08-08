@@ -70,8 +70,8 @@ def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
             for i, raw_sequence_dataset in enumerate(raw_sequence_datasets):
                 print('Training dataset {}'.format(i))
                 # Parameters
-                params = DEFAULT_SYNTHETIC_PARAMS if parameters is None else \
-                    parameters
+                params = DEFAULT_SYNTHETIC_PARAMS.copy() \
+                    if parameters is None else parameters
 
                 if experiment == 'long-horizon':
                     params['horizon'] = EXPERIMENT_MODES[experiment][i]
@@ -139,6 +139,13 @@ def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
                           'wb') as f:
                     pickle.dump(baseline_results[baseline], f,
                                 protocol=pickle.HIGHEST_PROTOCOL)
+                if baseline == CONFORMAL_FORECASTER_NAME:
+                    with open('saved_results/{}_{}_{}.pkl'.format(
+                            experiment, baseline + '-normalised', seed),
+                            'wb') as f:
+                        pickle.dump(
+                            baseline_results[baseline + '-normalised'], f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
 
     else:
         for baseline in baselines:
