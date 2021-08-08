@@ -153,7 +153,7 @@ class CoRNN(torch.nn.Module):
         criterion = torch.nn.MSELoss()
 
         # TODO early stopping based on validation loss of the calibration set
-        for epoch in range(100):
+        for epoch in range(500):
             train_loss = 0.
 
             for sequences, targets, lengths in train_loader:

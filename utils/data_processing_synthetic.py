@@ -28,6 +28,13 @@ HORIZONS = {
     'long-horizon': [5, 10, 100]
 }
 
+MAX_SEQUENCE_LENGTHS = {
+    'periodic': 20,
+    'time-dependent': 10,
+    'static': 10,
+    'long-horizon': 10
+}
+
 
 def autoregressive(X_gen, w):
     """ Generates the autoregressive component of a single time series
@@ -38,13 +45,17 @@ def autoregressive(X_gen, w):
 
 
 # https://www.statsmodels.org/devel/examples/notebooks/generated/statespace_seasonal.html
-def seasonal(duration, periodicity, amplitude=1., harmonics=1):
+def seasonal(duration, periodicity, amplitude=1., harmonics=1,
+             random_state=None):
+    if random_state is None:
+        random_state = np.random.RandomState(0)
+
     harmonics = harmonics if harmonics else int(np.floor(periodicity / 2))
 
     lambda_p = 2 * np.pi / float(periodicity)
 
-    gamma_jt = amplitude * np.random.randn(harmonics)
-    gamma_star_jt = amplitude * np.random.randn(harmonics)
+    gamma_jt = amplitude * random_state.randn(harmonics)
+    gamma_star_jt = amplitude * random_state.randn(harmonics)
 
     total_timesteps = 2 * duration  # Pad for burn in
     series = np.zeros(total_timesteps)
@@ -56,51 +67,15 @@ def seasonal(duration, periodicity, amplitude=1., harmonics=1):
             sin_j = np.sin(lambda_p * j)
             gamma_jtp1[j - 1] = (gamma_jt[j - 1] * cos_j
                                  + gamma_star_jt[j - 1] * sin_j
-                                 + amplitude * np.random.randn())
+                                 + amplitude * random_state.randn())
             gamma_star_jtp1[j - 1] = (- gamma_jt[j - 1] * sin_j
                                       + gamma_star_jt[j - 1] * cos_j
-                                      + amplitude * np.random.randn())
+                                      + amplitude * random_state.randn())
         series[t] = np.sum(gamma_jtp1)
         gamma_jt = gamma_jtp1
         gamma_star_jt = gamma_star_jtp1
 
     return series[-duration:].reshape(-1, 1)  # Discard burn in
-
-
-def create_autoregressive_data(n_samples=100,
-                               seq_len=6,
-                               n_features=1,
-                               X_m=1,
-                               X_v=2,
-                               noise_profile=None,
-                               memory_factor=0.9,
-                               mode="time-dependent"):
-    # Create the input features
-    X = [np.random.normal(X_m, X_v, (seq_len, n_features)) for _ in
-         range(n_samples)]
-    w = np.array([memory_factor ** k for k in range(seq_len)])
-
-    if noise_profile is None:
-        # default increasing noise profile
-        noise_profile = np.array(
-            [1 / (seq_len - 1) * k for k in range(seq_len)])
-
-    assert len(noise_profile) == seq_len
-
-    Y = None  # Y stores the actual time series values generated from features X
-    if mode == "static":
-        Y = [[(autoregressive(X[k], w).reshape(seq_len, n_features) +
-               np.random.normal(0, noise_profile[u],
-                                (seq_len, n_features))).reshape(seq_len, )
-              for k in range(n_samples)] for u in range(len(noise_profile))]
-
-    elif mode == "time-dependent":
-        Y = [(autoregressive(X[k], w).reshape(seq_len, n_features) + (
-            torch.normal(mean=0.0, std=torch.tensor(noise_profile)))
-              .detach().numpy().reshape(-1, n_features)).reshape(seq_len, )
-             for k in range(n_samples)]
-
-    return X, Y
 
 
 class AutoregressiveForecastDataset(torch.utils.data.Dataset):
@@ -131,7 +106,11 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              amplitude=1,
                                              harmonics=1,
                                              dynamic_sequence_lengths=False,
-                                             horizon=10):
+                                             horizon=10,
+                                             random_state=None):
+    if random_state is None:
+        random_state = np.random.RandomState(0)
+
     seq_len = max(seq_len, horizon)
 
     if noise_profile is None:
@@ -139,13 +118,14 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
 
     if dynamic_sequence_lengths:
         sequence_lengths = horizon + seq_len // 2 \
-                           + np.random.geometric(p=2 / seq_len, size=n_samples)
+                           + random_state.geometric(p=2 / seq_len,
+                                                    size=n_samples)
     else:
         sequence_lengths = np.array([seq_len + horizon] * n_samples)
 
     # Create the input features of the generating process
-    X_gen = [np.random.normal(X_mean, X_variance, (seq_len,
-                                                   n_features))
+    X_gen = [random_state.normal(X_mean, X_variance, (seq_len,
+                                                      n_features))
              for seq_len in sequence_lengths]
 
     w = np.array([memory_factor ** k for k in range(np.max(sequence_lengths))])
@@ -164,11 +144,13 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
 
     # X_full stores the time series values generated from features X_gen.
     ar = [autoregressive(x, w).reshape(-1, n_features) for x in X_gen]
-    noise = [np.random.normal(0., nv).reshape(-1, n_features) for
+    noise = [random_state.normal(0., nv).reshape(-1, n_features) for
              nv in noise_vars]
 
     if periodicity is not None:
-        periodic = [seasonal(sl, periodicity, amplitude, harmonics) for sl in
+        periodic = [seasonal(sl, periodicity, amplitude, harmonics,
+                             random_state=random_state) for
+                    sl in
                     sequence_lengths]
     else:
         periodic = np.array([np.zeros(sl) for sl in sequence_lengths]) \
@@ -201,7 +183,8 @@ def generate_raw_sequences(length=10, horizon=5,
                            mean=1,
                            variance=2,
                            memory_factor=0.9,
-                           noise_mode='long-horizon'):
+                           experiment='long-horizon',
+                           seed=0):
     # Time series parameters
     periodicity = None
     amplitude = 1
@@ -209,22 +192,23 @@ def generate_raw_sequences(length=10, horizon=5,
 
     if cached:
         raw_sequences = []
-        for i in EXPERIMENT_MODES[noise_mode]:
+        for i in EXPERIMENT_MODES[experiment]:
             with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
-                    noise_mode, i),
+                    experiment, i),
                     'rb') as f:
                 raw_train_sequences, raw_test_sequences = \
                     pickle.load(f)
             raw_sequences.append((raw_train_sequences, raw_test_sequences))
     else:
         raw_sequences = []
+        random_state = np.random.RandomState(seed)
 
-        for i in EXPERIMENT_MODES[noise_mode]:
-            if noise_mode == 'time-dependent':
+        for i in EXPERIMENT_MODES[experiment]:
+            if experiment == 'time-dependent':
                 noise_profile = [0.1 * i * k for k in range(length + horizon)]
-            elif noise_mode == 'static':
+            elif experiment == 'static':
                 noise_profile = [0.1 * i for _ in range(length + horizon)]
-            elif noise_mode == 'long-horizon':
+            elif experiment == 'long-horizon':
                 noise_profile = [0.1 * k for k in range(length + horizon)]
                 mean = 1
                 variance = 1
@@ -247,7 +231,8 @@ def generate_raw_sequences(length=10, horizon=5,
                     X_variance=variance,
                     memory_factor=memory_factor,
                     noise_profile=noise_profile,
-                    dynamic_sequence_lengths=dynamic_sequence_lengths)
+                    dynamic_sequence_lengths=dynamic_sequence_lengths,
+                    random_state=random_state)
             sequence_lengths_train = sequence_lengths_train - horizon
 
             X_test, Y_test, sequence_lengths_test = \
@@ -260,13 +245,14 @@ def generate_raw_sequences(length=10, horizon=5,
                     X_mean=mean,
                     X_variance=variance,
                     memory_factor=memory_factor,
-                    noise_mode=noise_mode,
+                    noise_mode=experiment,
                     noise_profile=noise_profile,
-                    dynamic_sequence_lengths=dynamic_sequence_lengths)
+                    dynamic_sequence_lengths=dynamic_sequence_lengths,
+                    random_state=random_state)
             sequence_lengths_test = sequence_lengths_test - horizon
 
             with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
-                    noise_mode, i),
+                    experiment, i),
                     'wb') as f:
                 pickle.dump(((X_train, Y_train, sequence_lengths_train),
                              (X_test, Y_test, sequence_lengths_test)),
@@ -279,7 +265,8 @@ def generate_raw_sequences(length=10, horizon=5,
     return raw_sequences
 
 
-def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5):
+def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5,
+                          seed=0):
     (X_train, Y_train, sequence_lengths_train), \
     (X_test, Y_test, sequence_lengths_test) = raw_sequences
 
@@ -287,7 +274,7 @@ def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5):
         (X_train, Y_train, sequence_lengths_train), \
         (X_calibration, Y_calibration, sequence_lengths_calibration) = \
             split_train_dataset(X_train, Y_train, sequence_lengths_train,
-                                n_calibration)
+                                n_calibration, seed=seed)
 
         # X: [n_samples, max_seq_len, n_features]
         X_train_tensor = torch.nn.utils.rnn.pad_sequence(X_train,
@@ -335,10 +322,10 @@ def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5):
 
 
 def split_train_dataset(X_train, Y_train, sequence_lengths_train,
-                        n_calibration):
+                        n_calibration, seed=0):
     """ Splits the train dataset into training and calibration sets. """
     n_train = len(X_train)
-    idx_perm = np.random.RandomState(seed=0).permutation(n_train)
+    idx_perm = np.random.RandomState(seed).permutation(n_train)
     idx_calibration = idx_perm[:int(n_train * n_calibration)]
     idx_train = idx_perm[int(n_train * n_calibration):]
 
