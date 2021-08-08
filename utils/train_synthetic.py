@@ -4,7 +4,6 @@
 import gc
 import pickle
 
-import numpy as np
 import torch
 
 from models.bjrnn import RNN_uncertainty_wrapper
@@ -13,22 +12,22 @@ from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from models.rnn import RNN
 from utils.data_processing_synthetic import \
-    EXPERIMENT_MODES, HORIZONS, generate_raw_sequences, get_synthetic_dataset
-from utils.performance import evaluate_performance, evaluate_cornn_performance, \
-    evaluate_bjrnn_performance
+    EXPERIMENT_MODES, HORIZONS, generate_raw_sequences, get_synthetic_dataset, \
+    MAX_SEQUENCE_LENGTHS
+from utils.performance import evaluate_performance, evaluate_cornn_performance
 
 CONFORMAL_FORECASTER_NAME = 'CPRNN'
 
 DEFAULT_SYNTHETIC_PARAMS = {'input_size': 1,  # RNN parameters
-                            'epochs': 1000,
-                            'n_steps': 5,
+                            'epochs': 10,
+                            'n_steps': 500,
                             'batch_size': 100,
                             'embedding_size': 20,
                             'max_steps': 10,
                             'output_size': 5,
                             'coverage': 0.9,
                             'lr': 0.01,
-                            'mode': 'RNN'}
+                            'mode': 'LSTM'}
 
 BASELINES = [CONFORMAL_FORECASTER_NAME, 'BJRNN', 'QRNN', 'DPRNN']
 
@@ -36,9 +35,9 @@ BASELINE_CLASSES = {'DPRNN': DPRNN,
                     'QRNN': QRNN}
 
 
-def run_synthetic_experiments(params=None, baselines=None, retrain=False,
+def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
                               generate_datasets=True,
-                              experiment='time-dependent', length=None,
+                              experiment='time-dependent',
                               correct_conformal=True, save_model=False,
                               save_results=True, rnn_mode='RNN', seed=None):
     # Models
@@ -61,43 +60,40 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
     torch.manual_seed(0 if seed is None else seed)
 
     if retrain:
-        raw_sequence_datasets = generate_raw_sequences(noise_mode=experiment,
-                                                       cached=not
-                                                       generate_datasets)
+        raw_sequence_datasets = generate_raw_sequences(experiment=experiment,
+                                                       cached=(not
+                                                               generate_datasets),
+                                                       seed=seed)
         for baseline in baselines:
             print('Training {}'.format(baseline))
 
             for i, raw_sequence_dataset in enumerate(raw_sequence_datasets):
-                if experiment == 'long-horizon':
-                    horizon = EXPERIMENT_MODES[experiment][i]
-                else:
-                    horizon = HORIZONS[experiment]
-
+                print('Training dataset {}'.format(i))
                 # Parameters
-                params = DEFAULT_SYNTHETIC_PARAMS if params is None else params
+                params = DEFAULT_SYNTHETIC_PARAMS.copy() \
+                    if parameters is None else parameters
 
-                params['max_steps'] = length
-                params['output_size'] = horizon
+                if experiment == 'long-horizon':
+                    params['horizon'] = EXPERIMENT_MODES[experiment][i]
+                else:
+                    params['horizon'] = HORIZONS[experiment]
+
+                params['max_steps'] = MAX_SEQUENCE_LENGTHS[experiment]
+                params['output_size'] = params['horizon']
 
                 if baseline == CONFORMAL_FORECASTER_NAME:
+                    params['epochs'] = 1000
+
                     train_dataset, calibration_dataset, test_dataset = \
                         get_synthetic_dataset(raw_sequence_dataset,
-                                              conformal=True)
-                    params['epochs'] = 10
-                    # TODO ?
-                    params['n_steps'] = 10
-
+                                              conformal=True, seed=seed)
                     model = CoRNN(embedding_size=params['embedding_size'],
-                                  horizon=horizon,
+                                  horizon=params['horizon'],
                                   error_rate=1 - params['coverage'],
                                   mode=rnn_mode)
                     model.fit(train_dataset, calibration_dataset,
                               epochs=params['epochs'], lr=params['lr'],
                               batch_size=params['batch_size'])
-                    if save_model:
-                        torch.save(model, 'saved_models/{}_{}_{}_{}.pt'.format(
-                            experiment, CONFORMAL_FORECASTER_NAME, model.mode,
-                            EXPERIMENT_MODES[experiment][i]))
 
                     result = evaluate_cornn_performance(model, test_dataset,
                                                         correct_conformal,
@@ -113,42 +109,48 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
                 else:
                     train_dataset, test_dataset = \
                         get_synthetic_dataset(raw_sequence_dataset,
-                                              conformal=False)
-
+                                              conformal=False, seed=seed)
                     if baseline == 'BJRNN':
                         RNN_model = RNN(**params)
                         RNN_model.fit(train_dataset[0], train_dataset[1])
-
                         model = RNN_uncertainty_wrapper(RNN_model)
-
-                        result = evaluate_bjrnn_performance(model,
-                                                            test_dataset[0],
-                                                            test_dataset[1])
-
                     else:
                         model = BASELINE_CLASSES[baseline](**params)
-
                         model.fit(train_dataset[0], train_dataset[1])
 
-                        result = evaluate_performance(model, test_dataset[0],
-                                                      test_dataset[1],
-                                                      coverage=params['coverage'],
-                                                      error_threshold='Auto')
-                    del model
-                    gc.collect()
+                    result = evaluate_performance(model,
+                                                  test_dataset[0],
+                                                  test_dataset[1],
+                                                  coverage=params['coverage'])
 
                     baseline_results[baseline].append(result)
 
+                if save_model:
+                    torch.save(model, 'saved_models/{}_{}_{}_{}_{}.pt'.format(
+                        experiment, baseline, model.mode,
+                        EXPERIMENT_MODES[experiment][i], seed))
+
+                del model
+                gc.collect()
+
             if save_results:
-                with open('saved_results/{}_{}.pkl'.format(experiment,
-                                                           baseline),
+                with open('saved_results/{}_{}_{}.pkl'.format(experiment,
+                                                              baseline, seed),
                           'wb') as f:
                     pickle.dump(baseline_results[baseline], f,
                                 protocol=pickle.HIGHEST_PROTOCOL)
+                if baseline == CONFORMAL_FORECASTER_NAME:
+                    with open('saved_results/{}_{}_{}.pkl'.format(
+                            experiment, baseline + '-normalised', seed),
+                            'wb') as f:
+                        pickle.dump(
+                            baseline_results[baseline + '-normalised'], f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
 
     else:
         for baseline in baselines:
-            with open('saved_results/{}_{}.pkl'.format(experiment, baseline),
+            with open('saved_results/{}_{}_{}.pkl'.format(experiment,
+                                                          baseline, seed),
                       'rb') as f:
                 results = pickle.load(f)
             baseline_results[baseline] = results
