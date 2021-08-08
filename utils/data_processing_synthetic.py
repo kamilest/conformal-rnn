@@ -308,8 +308,6 @@ def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5,
     (X_train, Y_train, sequence_lengths_train), \
     (X_test, Y_test, sequence_lengths_test) = raw_sequences
 
-    print('Conformal synthetic with seed {}'.format(seed))
-
     if conformal:
         (X_train, Y_train, sequence_lengths_train), \
         (X_calibration, Y_calibration, sequence_lengths_calibration) = \
