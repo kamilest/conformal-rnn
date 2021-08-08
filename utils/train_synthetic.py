@@ -108,8 +108,7 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
                 else:
                     train_dataset, test_dataset = \
                         get_synthetic_dataset(raw_sequence_dataset,
-                                              conformal=False)
-
+                                              conformal=False, seed=seed)
                     if baseline == 'BJRNN':
                         RNN_model = RNN(**params)
                         RNN_model.fit(train_dataset[0], train_dataset[1])
