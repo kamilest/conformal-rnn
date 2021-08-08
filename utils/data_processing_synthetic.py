@@ -100,7 +100,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              X_mean=1,
                                              X_variance=2,
                                              memory_factor=0.9,
-                                             noise_mode='time-dependent',
+                                             experiment='time-dependent',
                                              noise_profile=None,
                                              periodicity=None,
                                              amplitude=1,
@@ -130,11 +130,11 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
 
     w = np.array([memory_factor ** k for k in range(np.max(sequence_lengths))])
 
-    if noise_mode == 'static':
+    if experiment == 'static':
         noise_vars = [
             [noise_profile[(s * len(noise_profile)) // len(sequence_lengths)]] *
             sequence_lengths[s] for s in range(len(sequence_lengths))]
-    elif noise_mode == 'none':
+    elif experiment == 'none':
         # No additional noise beyond the variance of X_gen
         noise_vars = [[0] * sl for sl in sequence_lengths]
     else:  # noise_mode == 'time-dependent' or noise_mode == 'long-horizon'
@@ -245,7 +245,7 @@ def generate_raw_sequences(length=10, horizon=5,
                     X_mean=mean,
                     X_variance=variance,
                     memory_factor=memory_factor,
-                    noise_mode=experiment,
+                    experiment=experiment,
                     noise_profile=noise_profile,
                     dynamic_sequence_lengths=dynamic_sequence_lengths,
                     random_state=random_state)
