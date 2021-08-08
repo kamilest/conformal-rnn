@@ -35,7 +35,7 @@ BASELINE_CLASSES = {'DPRNN': DPRNN,
                     'QRNN': QRNN}
 
 
-def run_synthetic_experiments(params=None, baselines=None, retrain=False,
+def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
                               generate_datasets=True,
                               experiment='time-dependent',
                               correct_conformal=True, save_model=False,
@@ -70,7 +70,8 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
             for i, raw_sequence_dataset in enumerate(raw_sequence_datasets):
                 print('Training dataset {}'.format(i))
                 # Parameters
-                params = DEFAULT_SYNTHETIC_PARAMS if params is None else params
+                params = DEFAULT_SYNTHETIC_PARAMS if parameters is None else \
+                    parameters
 
                 if experiment == 'long-horizon':
                     params['horizon'] = EXPERIMENT_MODES[experiment][i]
@@ -125,9 +126,9 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
                     baseline_results[baseline].append(result)
 
                 if save_model:
-                    torch.save(model, 'saved_models/{}_{}_{}_{}.pt'.format(
+                    torch.save(model, 'saved_models/{}_{}_{}_{}_{}.pt'.format(
                         experiment, baseline, model.mode,
-                        EXPERIMENT_MODES[experiment][i]))
+                        EXPERIMENT_MODES[experiment][i], seed))
 
                 del model
                 gc.collect()
