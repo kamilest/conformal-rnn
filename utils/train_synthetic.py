@@ -62,7 +62,8 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
     if retrain:
         raw_sequence_datasets = generate_raw_sequences(experiment=experiment,
                                                        cached=(not
-                                                               generate_datasets))
+                                                               generate_datasets),
+                                                       seed=seed)
         for baseline in baselines:
             print('Training {}'.format(baseline))
 
