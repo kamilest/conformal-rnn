@@ -9,6 +9,9 @@ import torch
 # Settings controlling the independent variables of experiments depending on
 # the experiment mode:
 #   periodic: Controls periodicity.
+#   dynamic-lengths: Set to be the same as periodicity for the datasets,
+#     but every dataset is generated with series lengths following a geometric
+#     distribution depending on horizon and mean sequence length (see code).
 #   time-dependent: Controls increasing noise amplitude within a single time-series.
 #   static: Controls noise amplitudes across the collection of time-series.
 #   long-horizon: Controls the horizon length of time-series.
@@ -16,6 +19,7 @@ import torch
 
 EXPERIMENT_MODES = {
     'periodic': [2, 10],
+    'dynamic-lengths': [2, 10],
     'time-dependent': range(1, 6),
     'static': range(1, 6),
     'long-horizon': [5, 10, 100],
@@ -23,6 +27,7 @@ EXPERIMENT_MODES = {
 
 HORIZONS = {
     'periodic': 10,
+    'dynamic-lengths': 10,
     'time-dependent': 5,
     'static': 5,
     'long-horizon': [5, 10, 100]
@@ -30,6 +35,7 @@ HORIZONS = {
 
 MAX_SEQUENCE_LENGTHS = {
     'periodic': 20,
+    'dynamic-lengths': 20,
     'time-dependent': 10,
     'static': 10,
     'long-horizon': 10
@@ -105,7 +111,6 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              periodicity=None,
                                              amplitude=1,
                                              harmonics=1,
-                                             dynamic_sequence_lengths=False,
                                              horizon=10,
                                              random_state=None):
     if random_state is None:
@@ -116,7 +121,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
     if noise_profile is None:
         noise_profile = [0.2, 0.4, 0.6, 0.8, 1.]
 
-    if dynamic_sequence_lengths:
+    if experiment == 'dynamic-lengths':
         sequence_lengths = horizon + seq_len // 2 \
                            + random_state.geometric(p=2 / seq_len,
                                                     size=n_samples)
@@ -134,13 +139,13 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         noise_vars = [
             [noise_profile[(s * len(noise_profile)) // len(sequence_lengths)]] *
             sequence_lengths[s] for s in range(len(sequence_lengths))]
-    elif experiment == 'none':
-        # No additional noise beyond the variance of X_gen
-        noise_vars = [[0] * sl for sl in sequence_lengths]
-    else:  # noise_mode == 'time-dependent' or noise_mode == 'long-horizon'
+    elif experiment == 'time-dependent' or experiment == 'long-horizon':
         # Spread the noise profile across time-steps
         noise_vars = [[noise_profile[(s * len(noise_profile)) // sl]
                        for s in range(sl)] for sl in sequence_lengths]
+    else:
+        # No additional noise beyond the variance of X_gen
+        noise_vars = [[0] * sl for sl in sequence_lengths]
 
     # X_full stores the time series values generated from features X_gen.
     ar = [autoregressive(x, w).reshape(-1, n_features) for x in X_gen]
@@ -188,7 +193,6 @@ def generate_raw_sequences(length=10, horizon=5,
     # Time series parameters
     periodicity = None
     amplitude = 1
-    dynamic_sequence_lengths = False
 
     if cached:
         raw_sequences = []
@@ -231,7 +235,6 @@ def generate_raw_sequences(length=10, horizon=5,
                     X_variance=variance,
                     memory_factor=memory_factor,
                     noise_profile=noise_profile,
-                    dynamic_sequence_lengths=dynamic_sequence_lengths,
                     random_state=random_state)
             sequence_lengths_train = sequence_lengths_train - horizon
 
@@ -247,7 +250,6 @@ def generate_raw_sequences(length=10, horizon=5,
                     memory_factor=memory_factor,
                     experiment=experiment,
                     noise_profile=noise_profile,
-                    dynamic_sequence_lengths=dynamic_sequence_lengths,
                     random_state=random_state)
             sequence_lengths_test = sequence_lengths_test - horizon
 
