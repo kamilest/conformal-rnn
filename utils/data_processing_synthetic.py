@@ -222,7 +222,7 @@ def generate_raw_sequences(length=10, horizon=5,
                            mean=1,
                            variance=2,
                            memory_factor=0.9,
-                           noise_mode='long-horizon',
+                           experiment='long-horizon',
                            seed=0):
     # Time series parameters
     periodicity = None
@@ -231,9 +231,9 @@ def generate_raw_sequences(length=10, horizon=5,
 
     if cached:
         raw_sequences = []
-        for i in EXPERIMENT_MODES[noise_mode]:
+        for i in EXPERIMENT_MODES[experiment]:
             with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
-                    noise_mode, i),
+                    experiment, i),
                     'rb') as f:
                 raw_train_sequences, raw_test_sequences = \
                     pickle.load(f)
@@ -241,12 +241,12 @@ def generate_raw_sequences(length=10, horizon=5,
     else:
         raw_sequences = []
 
-        for i in EXPERIMENT_MODES[noise_mode]:
-            if noise_mode == 'time-dependent':
+        for i in EXPERIMENT_MODES[experiment]:
+            if experiment == 'time-dependent':
                 noise_profile = [0.1 * i * k for k in range(length + horizon)]
-            elif noise_mode == 'static':
+            elif experiment == 'static':
                 noise_profile = [0.1 * i for _ in range(length + horizon)]
-            elif noise_mode == 'long-horizon':
+            elif experiment == 'long-horizon':
                 noise_profile = [0.1 * k for k in range(length + horizon)]
                 mean = 1
                 variance = 1
@@ -283,14 +283,14 @@ def generate_raw_sequences(length=10, horizon=5,
                     X_mean=mean,
                     X_variance=variance,
                     memory_factor=memory_factor,
-                    noise_mode=noise_mode,
+                    noise_mode=experiment,
                     noise_profile=noise_profile,
                     dynamic_sequence_lengths=dynamic_sequence_lengths,
                     seed=seed)
             sequence_lengths_test = sequence_lengths_test - horizon
 
             with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
-                    noise_mode, i),
+                    experiment, i),
                     'wb') as f:
                 pickle.dump(((X_train, Y_train, sequence_lengths_train),
                              (X_test, Y_test, sequence_lengths_test)),

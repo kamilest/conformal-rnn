@@ -60,7 +60,7 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
     torch.manual_seed(0 if seed is None else seed)
 
     if retrain:
-        raw_sequence_datasets = generate_raw_sequences(noise_mode=experiment,
+        raw_sequence_datasets = generate_raw_sequences(experiment=experiment,
                                                        cached=(not
                                                                generate_datasets))
         for baseline in baselines:
