@@ -92,10 +92,6 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
                     model.fit(train_dataset, calibration_dataset,
                               epochs=params['epochs'], lr=params['lr'],
                               batch_size=params['batch_size'])
-                    if save_model:
-                        torch.save(model, 'saved_models/{}_{}_{}_{}.pt'.format(
-                            experiment, CONFORMAL_FORECASTER_NAME, model.mode,
-                            EXPERIMENT_MODES[experiment][i]))
 
                     result = evaluate_cornn_performance(model, test_dataset,
                                                         correct_conformal,
@@ -125,10 +121,16 @@ def run_synthetic_experiments(params=None, baselines=None, retrain=False,
                                                   test_dataset[0],
                                                   test_dataset[1],
                                                   coverage=params['coverage'])
-                    del model
-                    gc.collect()
 
                     baseline_results[baseline].append(result)
+
+                if save_model:
+                    torch.save(model, 'saved_models/{}_{}_{}_{}.pt'.format(
+                        experiment, baseline, model.mode,
+                        EXPERIMENT_MODES[experiment][i]))
+
+                del model
+                gc.collect()
 
             if save_results:
                 with open('saved_results/{}_{}.pkl'.format(experiment,
