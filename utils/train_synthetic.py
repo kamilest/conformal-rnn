@@ -142,7 +142,8 @@ def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
 
     else:
         for baseline in baselines:
-            with open('saved_results/{}_{}.pkl'.format(experiment, baseline),
+            with open('saved_results/{}_{}_{}.pkl'.format(experiment,
+                                                          baseline, seed),
                       'rb') as f:
                 results = pickle.load(f)
             baseline_results[baseline] = results
