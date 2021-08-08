@@ -134,8 +134,8 @@ def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
                 gc.collect()
 
             if save_results:
-                with open('saved_results/{}_{}.pkl'.format(experiment,
-                                                           baseline),
+                with open('saved_results/{}_{}_{}.pkl'.format(experiment,
+                                                              baseline, seed),
                           'wb') as f:
                     pickle.dump(baseline_results[baseline], f,
                                 protocol=pickle.HIGHEST_PROTOCOL)
