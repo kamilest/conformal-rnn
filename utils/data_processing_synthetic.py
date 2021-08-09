@@ -185,7 +185,6 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         # Examples with sequence lenghts <=`horizon` don't give any
         # information and are excluded.
         # assert np.min(sequence_lengths) > horizon
-
     return X, Y, sequence_lengths
 
 
@@ -326,7 +325,7 @@ def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5,
         synthetic_dataset = (train_dataset, calibration_dataset,
                              test_dataset)
     else:
-        synthetic_dataset = (X_train, Y_train), (X_test, Y_test)
+        synthetic_dataset = raw_sequences
 
     return synthetic_dataset
 

@@ -35,6 +35,10 @@ BASELINE_CLASSES = {'DPRNN': DPRNN,
                     'QRNN': QRNN}
 
 
+def get_max_steps(train_dataset, test_dataset):
+    return max(max(train_dataset[2]), max(test_dataset[2]))
+
+
 def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
                               generate_datasets=True,
                               experiment='time-dependent',
@@ -78,7 +82,6 @@ def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
                 else:
                     params['horizon'] = HORIZONS[experiment]
 
-                params['max_steps'] = MAX_SEQUENCE_LENGTHS[experiment]
                 params['output_size'] = params['horizon']
 
                 if baseline == CONFORMAL_FORECASTER_NAME:
@@ -110,6 +113,13 @@ def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
                     train_dataset, test_dataset = \
                         get_synthetic_dataset(raw_sequence_dataset,
                                               conformal=False, seed=seed)
+
+                    if experiment == 'dynamic-lengths':
+                        params['max_steps'] = get_max_steps(train_dataset,
+                                                            test_dataset)
+                    else:
+                        params['max_steps'] = MAX_SEQUENCE_LENGTHS[experiment]
+
                     if baseline == 'BJRNN':
                         RNN_model = RNN(**params)
                         RNN_model.fit(train_dataset[0], train_dataset[1])
