@@ -240,6 +240,7 @@ def generate_raw_sequences(length=10, horizon=5,
                     amplitude=amplitude,
                     X_mean=mean,
                     X_variance=variance,
+                    experiment=experiment,
                     memory_factor=memory_factor,
                     noise_profile=noise_profile,
                     random_state=random_state)
