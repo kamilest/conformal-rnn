@@ -52,7 +52,7 @@ def autoregressive(X_gen, w):
 
 # https://www.statsmodels.org/devel/examples/notebooks/generated/statespace_seasonal.html
 def seasonal(duration, periodicity, amplitude=1., harmonics=1,
-             random_state=None):
+             random_state=None, asynchronous=True):
     if random_state is None:
         random_state = np.random.RandomState(0)
 
@@ -63,7 +63,12 @@ def seasonal(duration, periodicity, amplitude=1., harmonics=1,
     gamma_jt = amplitude * random_state.randn(harmonics)
     gamma_star_jt = amplitude * random_state.randn(harmonics)
 
-    total_timesteps = 2 * duration  # Pad for burn in
+    # Pad for burn in
+    if asynchronous:
+        # Will make series start at random phase when burn-in is discarded
+        total_timesteps = duration + random_state.randint(duration)
+    else:
+        total_timesteps = 2 * duration
     series = np.zeros(total_timesteps)
     for t in range(total_timesteps):
         gamma_jtp1 = np.zeros_like(gamma_jt)
@@ -153,8 +158,10 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
              nv in noise_vars]
 
     if periodicity is not None:
+        asynchronous = experiment == 'dynamic-lengths'
         periodic = [seasonal(sl, periodicity, amplitude, harmonics,
-                             random_state=random_state) for
+                             random_state=random_state,
+                             asynchronous=asynchronous) for
                     sl in
                     sequence_lengths]
     else:
