@@ -47,6 +47,7 @@ class CoRNN(torch.nn.Module):
         self.horizon = horizon
         self.output_size = output_size
         self.alpha = error_rate
+        self.normalised = normalised
 
         # Main CoRNN network
         self.mode = mode
@@ -201,16 +202,20 @@ class CoRNN(torch.nn.Module):
                 out, _ = self(sequences)
 
                 score = nonconformity(out, targets)
-                normalised_score = score / self.normaliser_score(
-                    sequences)
+                if self.normalised:
+                    normalised_score = score / self.normaliser_score(
+                        sequences)
+                    normalised_calibration_scores.append(normalised_score)
 
                 # n_batches: [batch_size, horizon, output_size]
                 calibration_scores.append(score)
 
         # [output_size, horizon, n_samples]
         self.calibration_scores = torch.vstack(calibration_scores).T
-        self.normalised_calibration_scores = torch.vstack(
-            normalised_calibration_scores).T
+
+        if self.normalised:
+            self.normalised_calibration_scores = torch.vstack(
+                normalised_calibration_scores).T
 
         # [horizon, output_size]
         q = min((n_calibration + 1.) * (1 - self.alpha) / n_calibration, 1)
@@ -218,10 +223,11 @@ class CoRNN(torch.nn.Module):
 
         self.critical_calibration_scores = get_critical_scores(
             calibration_scores=self.calibration_scores,
-            q=1 - self.alpha * n_train / (n_train + 1))
-        self.normalised_critical_calibration_scores = get_critical_scores(
-            calibration_scores=self.normalised_calibration_scores,
-            q=1 - self.alpha * n_train / (n_train + 1))
+            q=q)
+        if self.normalised:
+            self.normalised_critical_calibration_scores = get_critical_scores(
+                calibration_scores=self.normalised_calibration_scores,
+                q=q)
 
         # Bonferroni corrected calibration scores.
         # [horizon, output_size]
@@ -229,10 +235,11 @@ class CoRNN(torch.nn.Module):
             calibration_scores=self.calibration_scores,
             q=corrected_q)
 
-        self.normalised_corrected_critical_calibration_scores = \
-            get_critical_scores(
-                calibration_scores=self.normalised_calibration_scores,
-                q=1 - corrected_alpha * n_train / (n_train + 1))
+        if self.normalised:
+            self.normalised_corrected_critical_calibration_scores = \
+                get_critical_scores(
+                    calibration_scores=self.normalised_calibration_scores,
+                    q=corrected_q)
 
         # self.n_train = n_train
 
@@ -245,9 +252,11 @@ class CoRNN(torch.nn.Module):
         # Train the multi-horizon forecaster.
         self.train_forecaster(train_loader, epochs, lr)
         # Train normalisation network.
-        self.train_normaliser(train_loader)
-        self.normalising_rnn.eval()
-        self.normalising_out.eval()
+        if self.normalised:
+            self.train_normaliser(train_loader)
+            self.normalising_rnn.eval()
+            self.normalising_out.eval()
+
         # Collect calibration scores
         self.calibrate(calibration_dataset)
 
