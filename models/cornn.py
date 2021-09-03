@@ -38,7 +38,7 @@ def get_critical_scores(calibration_scores, q):
 
 class CoRNN(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
-                 error_rate=0.05, mode='LSTM', **kwargs):
+                 error_rate=0.05, mode='LSTM', normalised=True, **kwargs):
         super(CoRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
@@ -184,12 +184,14 @@ class CoRNN(torch.nn.Module):
                     'Epoch: {}\tNormalisation loss: {}'.format(epoch,
                                                                mean_train_loss))
 
-    def calibrate(self, calibration_dataset, n_train):
+    def calibrate(self, calibration_dataset):
         """
         Computes the nonconformity scores for the calibration dataset.
         """
         calibration_loader = torch.utils.data.DataLoader(calibration_dataset,
                                                          batch_size=1)
+        n_calibration = len(calibration_dataset)
+
         calibration_scores = []
         normalised_calibration_scores = []
 
@@ -204,7 +206,6 @@ class CoRNN(torch.nn.Module):
 
                 # n_batches: [batch_size, horizon, output_size]
                 calibration_scores.append(score)
-                normalised_calibration_scores.append(normalised_score)
 
         # [output_size, horizon, n_samples]
         self.calibration_scores = torch.vstack(calibration_scores).T
@@ -212,6 +213,9 @@ class CoRNN(torch.nn.Module):
             normalised_calibration_scores).T
 
         # [horizon, output_size]
+        q = min((n_calibration + 1.) * (1 - self.alpha) / n_calibration, 1)
+        corrected_q = min((n_calibration + 1.) * (1 - self.alpha / self.horizon) / n_calibration, 1)
+
         self.critical_calibration_scores = get_critical_scores(
             calibration_scores=self.calibration_scores,
             q=1 - self.alpha * n_train / (n_train + 1))
@@ -221,17 +225,16 @@ class CoRNN(torch.nn.Module):
 
         # Bonferroni corrected calibration scores.
         # [horizon, output_size]
-        corrected_alpha = self.alpha / self.horizon
         self.corrected_critical_calibration_scores = get_critical_scores(
             calibration_scores=self.calibration_scores,
-            q=1 - corrected_alpha * n_train / (n_train + 1))
+            q=corrected_q)
 
         self.normalised_corrected_critical_calibration_scores = \
             get_critical_scores(
                 calibration_scores=self.normalised_calibration_scores,
                 q=1 - corrected_alpha * n_train / (n_train + 1))
 
-        self.n_train = n_train
+        # self.n_train = n_train
 
     def fit(self, train_dataset, calibration_dataset, epochs, lr,
             batch_size=32):
@@ -246,9 +249,9 @@ class CoRNN(torch.nn.Module):
         self.normalising_rnn.eval()
         self.normalising_out.eval()
         # Collect calibration scores
-        self.calibrate(calibration_dataset, n_train=len(train_dataset))
+        self.calibrate(calibration_dataset)
 
-    def predict(self, x, state=None, corrected=True, normalised=True):
+    def predict(self, x, state=None, corrected=True, normalised=False):
         """Forecasts the time series with conformal uncertainty intervals."""
         out, hidden = self(x, state)
 
@@ -279,7 +282,7 @@ class CoRNN(torch.nn.Module):
         # [batch_size, 2, horizon, n_outputs]
         return torch.stack((lower, upper), dim=1), hidden
 
-    def evaluate_coverage(self, test_dataset, corrected=True, normalised=True):
+    def evaluate_coverage(self, test_dataset, corrected=True, normalised=False):
         self.eval()
 
         independent_coverages, joint_coverages, intervals = [], [], []
@@ -304,7 +307,7 @@ class CoRNN(torch.nn.Module):
         return independent_coverages, joint_coverages, intervals
 
     def get_point_predictions_and_errors(self, test_dataset, corrected=True,
-                                         normalised=True):
+                                         normalised=False):
         self.eval()
 
         point_predictions = []
