@@ -95,14 +95,16 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                     embedding_size=params['embedding_size'],
                     horizon=horizon,
                     error_rate=1 - params['coverage'],
-                    mode=rnn_mode)
+                    mode=rnn_mode,
+                    normalised=False)
 
                 model.fit(train_dataset, calibration_dataset,
                           epochs=params['epochs'], lr=params['lr'],
                           batch_size=params['batch_size'])
 
                 results = evaluate_cornn_performance(model, test_dataset,
-                                                     correct_conformal)
+                                                     correct_conformal,
+                                                     normalised=False)
 
             else:
                 model = BASELINE_CLASSES[baseline](**params)
