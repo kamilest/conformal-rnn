@@ -16,12 +16,12 @@ from utils.performance import evaluate_performance, evaluate_cornn_performance
 
 
 class BASELINES(Enum):
-    CoRNN = 'CPRNN'
-    DPRNN = 'DPRNN'
-    QRNN = 'QRNN'
+    CFRNN = CFRNN
+    DPRNN = DPRNN
+    QRNN = QRNN
 
 
-BASELINE_CLASSES = {BASELINES.CoRNN: CFRNN,
+BASELINE_CLASSES = {BASELINES.CFRNN: CFRNN,
                     BASELINES.DPRNN: DPRNN,
                     BASELINES.QRNN: QRNN}
 
@@ -35,7 +35,7 @@ DEFAULT_PARAMS = {'batch_size': 150,
 # Epochs are counted differently in DPRNN and QRNN compared to CoRNN but
 # similar number of iterations are performed; see implementation details.
 EPOCHS = {
-    BASELINES.CoRNN: {'mimic': 1000, 'eeg': 100, 'covid': 1000},
+    BASELINES.CFRNN: {'mimic': 1000, 'eeg': 100, 'covid': 1000},
     BASELINES.DPRNN: {'mimic': 10, 'eeg': 10, 'covid': 10},
     BASELINES.QRNN: {'mimic': 10, 'eeg': 10, 'covid': 10}
 }
@@ -58,6 +58,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
                             correct_conformal=True, save_model=False,
                             save_results=True, rnn_mode='LSTM', seed=None):
     # Models
+    # TODO baseline class keys
     baselines = BASELINE_CLASSES.keys() if baselines is None else baselines
     for baseline in baselines:
         assert baseline in BASELINE_CLASSES.keys(), 'Invalid baselines'
@@ -84,7 +85,8 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
         for baseline in baselines:
             print('Training {}'.format(baseline))
 
-            conformal = baseline == BASELINES.CoRNN
+            # TODO fix names
+            conformal = baseline == BASELINES.CFRNN
             train_dataset, calibration_dataset, test_dataset = \
                 split_fn(conformal=conformal, horizon=horizon, seed=seed)
 
