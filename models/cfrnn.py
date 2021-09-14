@@ -3,6 +3,7 @@
 
 import torch
 
+
 def coverage(intervals, target):
     """ Determines whether intervals coverage the target prediction.
 
@@ -145,7 +146,8 @@ class CFRNN(torch.nn.Module):
 
         # [horizon, output_size]
         q = min((n_calibration + 1.) * (1 - self.alpha) / n_calibration, 1)
-        corrected_q = min((n_calibration + 1.) * (1 - self.alpha / self.horizon) / n_calibration, 1)
+        corrected_q = min((n_calibration + 1.) * (
+                    1 - self.alpha / self.horizon) / n_calibration, 1)
 
         self.critical_calibration_scores = get_critical_scores(
             calibration_scores=self.calibration_scores,
