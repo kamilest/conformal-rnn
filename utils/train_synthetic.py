@@ -7,7 +7,7 @@ import pickle
 import torch
 
 from models.bjrnn import RNN_uncertainty_wrapper
-from models.cfrnn import CoRNN
+from models.cfrnn import CFRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from models.rnn import RNN
@@ -90,7 +90,7 @@ def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
                     train_dataset, calibration_dataset, test_dataset = \
                         get_synthetic_dataset(raw_sequence_dataset,
                                               conformal=True, seed=seed)
-                    model = CoRNN(embedding_size=params['embedding_size'],
+                    model = CFRNN(embedding_size=params['embedding_size'],
                                   horizon=params['horizon'],
                                   error_rate=1 - params['coverage'],
                                   mode=rnn_mode)
