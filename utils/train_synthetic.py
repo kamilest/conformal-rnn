@@ -16,7 +16,7 @@ from utils.data_processing_synthetic import \
     MAX_SEQUENCE_LENGTHS
 from utils.performance import evaluate_performance, evaluate_cornn_performance
 
-CONFORMAL_FORECASTER_NAME = 'CPRNN'
+CONFORMAL_FORECASTER_NAME = 'CFRNN'
 
 DEFAULT_SYNTHETIC_PARAMS = {'input_size': 1,  # RNN parameters
                             'epochs': 10,
@@ -31,7 +31,8 @@ DEFAULT_SYNTHETIC_PARAMS = {'input_size': 1,  # RNN parameters
 
 BASELINES = [CONFORMAL_FORECASTER_NAME, 'BJRNN', 'QRNN', 'DPRNN']
 
-BASELINE_CLASSES = {'DPRNN': DPRNN,
+BASELINE_CLASSES = {'CFRNN': CFRNN,
+                    'DPRNN': DPRNN,
                     'QRNN': QRNN}
 
 
@@ -53,6 +54,7 @@ def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
     # Datasets
     assert experiment in EXPERIMENT_MODES.keys(), 'Invalid experiment'
 
+    # TODO move normalised to the top of file as separate baseline
     baseline_results = dict({CONFORMAL_FORECASTER_NAME: [],
                              CONFORMAL_FORECASTER_NAME + '-normalised': [],
                              'BJRNN': [],
