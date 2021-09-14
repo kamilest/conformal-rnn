@@ -67,12 +67,16 @@ class CoRNN(torch.nn.Module):
                                               horizon * output_size)
 
         # Score normalisation network
-        self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
-                                            hidden_size=self.embedding_size,
-                                            batch_first=True)
+        if self.normalised:
+            self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
+                                                hidden_size=self.embedding_size,
+                                                batch_first=True)
 
-        self.normalising_out = torch.nn.Linear(self.embedding_size,
-                                               self.horizon * self.output_size)
+            self.normalising_out = torch.nn.Linear(self.embedding_size,
+                                                   self.horizon * self.output_size)
+        else:
+            self.normalising_rnn = None
+            self.normalising_out = None
 
         self.n_train = None
         self.calibration_scores = None
