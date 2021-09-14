@@ -7,7 +7,7 @@ import pickle
 import torch
 
 from models.bjrnn import RNN_uncertainty_wrapper
-from models.cornn import CoRNN
+from models.cfrnn import CoRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from models.rnn import RNN

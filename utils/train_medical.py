@@ -6,7 +6,7 @@ from enum import Enum
 
 import torch
 
-from models.cornn import CoRNN
+from models.cfrnn import CoRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from utils.data_processing_covid import get_covid_splits
