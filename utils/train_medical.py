@@ -6,7 +6,7 @@ from enum import Enum
 
 import torch
 
-from models.cfrnn import CoRNN
+from models.cfrnn import CFRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from utils.data_processing_covid import get_covid_splits
@@ -21,7 +21,7 @@ class BASELINES(Enum):
     QRNN = 'QRNN'
 
 
-BASELINE_CLASSES = {BASELINES.CoRNN: CoRNN,
+BASELINE_CLASSES = {BASELINES.CoRNN: CFRNN,
                     BASELINES.DPRNN: DPRNN,
                     BASELINES.QRNN: QRNN}
 
@@ -91,7 +91,7 @@ def run_medical_experiments(params=None, baselines=None, retrain=False,
             params['epochs'] = EPOCHS[baseline][dataset]
 
             if conformal:
-                model = CoRNN(
+                model = CFRNN(
                     embedding_size=params['embedding_size'],
                     horizon=horizon,
                     error_rate=1 - params['coverage'],

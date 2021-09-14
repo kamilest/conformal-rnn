@@ -36,10 +36,10 @@ def get_critical_scores(calibration_scores, q):
         for feature_calibration_scores in calibration_scores]).T
 
 
-class CoRNN(torch.nn.Module):
+class CFRNN(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  error_rate=0.05, mode='LSTM', normalised=True, **kwargs):
-        super(CoRNN, self).__init__()
+        super(CFRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
         self.input_size = input_size
