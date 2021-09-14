@@ -2,7 +2,7 @@
 # Licensed under the BSD 3-clause license
 
 import torch
-from cfrnn import CFRNN, get_critical_scores
+from cfrnn import CFRNN
 
 
 class CFRNN_normalised(CFRNN):
