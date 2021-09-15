@@ -67,7 +67,7 @@ def run_medical_experiments(dataset='mimic', baselines=None, retrain=False,
     length = TIMESERIES_LENGTHS[dataset]
 
     # Parameters
-    params = DEFAULT_PARAMS if params is None else params
+    params = DEFAULT_PARAMS.copy() if params is None else params
     params['max_steps'] = length
     params['output_size'] = horizon
 
