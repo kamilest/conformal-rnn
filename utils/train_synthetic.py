@@ -16,6 +16,15 @@ from utils.data_processing_synthetic import \
     MAX_SEQUENCE_LENGTHS
 from utils.performance import evaluate_performance, evaluate_cfrnn_performance
 
+
+BASELINES = {'CFRNN': CFRNN,
+             'CFRNN_normalised': CFRNN_normalised,
+             'BJRNN': None,
+             'DPRNN': DPRNN,
+             'QRNN': QRNN}
+
+CONFORMAL_BASELINES = ['CFRNN', 'CFRNN_normalised']
+
 DEFAULT_SYNTHETIC_PARAMS = {'input_size': 1,  # RNN parameters
                             'epochs': 10,
                             'n_steps': 500,
@@ -26,15 +35,6 @@ DEFAULT_SYNTHETIC_PARAMS = {'input_size': 1,  # RNN parameters
                             'coverage': 0.9,
                             'lr': 0.01,
                             'rnn_mode': 'LSTM'}
-
-BASELINES = {'CFRNN': CFRNN,
-             'CFRNN_normalised': CFRNN_normalised,
-             'BJRNN': None,
-             'DPRNN': DPRNN,
-             'QRNN': QRNN}
-
-CONFORMAL_BASELINES = ['CFRNN', 'CFRNN_normalised']
-
 
 def get_max_steps(train_dataset, test_dataset):
     return max(max(train_dataset[2]), max(test_dataset[2]))
