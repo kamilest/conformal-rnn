@@ -9,36 +9,37 @@ import torch
 # Settings controlling the independent variables of experiments depending on
 # the experiment mode:
 #   periodic: Controls periodicity.
-#   dynamic-lengths: Set to be the same as periodicity for the datasets,
+#   dynamic_lengths: Set to be the same as periodicity for the datasets,
 #     but every dataset is generated with series lengths following a geometric
 #     distribution depending on horizon and mean sequence length (see code).
-#   time-dependent: Controls increasing noise amplitude within a single time-series.
+#   time_dependent: Controls increasing noise amplitude within a single
+#   time-series.
 #   static: Controls noise amplitudes across the collection of time-series.
-#   long-horizon: Controls the horizon length of time-series.
+#   long_horizon: Controls the horizon length of time-series.
 # See paper for details.
 
 EXPERIMENT_MODES = {
     'periodic': [2, 10],
-    'dynamic-lengths': [2, 10],
-    'time-dependent': range(1, 6),
+    'dynamic_lengths': [2, 10],
+    'time_dependent': range(1, 6),
     'static': range(1, 6),
-    'long-horizon': [5, 10, 100],
+    'long_horizon': [5, 10, 100],
 }
 
 HORIZONS = {
     'periodic': 10,
-    'dynamic-lengths': 10,
-    'time-dependent': 5,
+    'dynamic_lengths': 10,
+    'time_dependent': 5,
     'static': 5,
-    'long-horizon': [5, 10, 100]
+    'long_horizon': [5, 10, 100]
 }
 
 MAX_SEQUENCE_LENGTHS = {
     'periodic': 20,
-    'dynamic-lengths': 20,
-    'time-dependent': 10,
+    'dynamic_lengths': 20,
+    'time_dependent': 10,
     'static': 10,
-    'long-horizon': 10
+    'long_horizon': 10
 }
 
 
@@ -111,7 +112,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
                                              X_mean=1,
                                              X_variance=2,
                                              memory_factor=0.9,
-                                             experiment='time-dependent',
+                                             experiment='time_dependent',
                                              noise_profile=None,
                                              periodicity=None,
                                              amplitude=1,
@@ -126,7 +127,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
     if noise_profile is None:
         noise_profile = [0.2, 0.4, 0.6, 0.8, 1.]
 
-    if experiment == 'dynamic-lengths':
+    if experiment == 'dynamic_lengths':
         sequence_lengths = horizon + seq_len // 2 \
                            + random_state.geometric(p=2 / seq_len,
                                                     size=n_samples)
@@ -144,7 +145,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         noise_vars = [
             [noise_profile[(s * len(noise_profile)) // len(sequence_lengths)]] *
             sequence_lengths[s] for s in range(len(sequence_lengths))]
-    elif experiment == 'time-dependent' or experiment == 'long-horizon':
+    elif experiment == 'time_dependent' or experiment == 'long_horizon':
         # Spread the noise profile across time-steps
         noise_vars = [[noise_profile[(s * len(noise_profile)) // sl]
                        for s in range(sl)] for sl in sequence_lengths]
@@ -158,7 +159,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
              nv in noise_vars]
 
     if periodicity is not None:
-        asynchronous = experiment == 'dynamic-lengths'
+        asynchronous = experiment == 'dynamic_lengths'
         periodic = [seasonal(sl, periodicity, amplitude, harmonics,
                              random_state=random_state,
                              asynchronous=asynchronous) for
@@ -195,7 +196,7 @@ def generate_raw_sequences(length=10, horizon=5,
                            mean=1,
                            variance=2,
                            memory_factor=0.9,
-                           experiment='long-horizon',
+                           experiment='long_horizon',
                            seed=0):
     # Time series parameters
     periodicity = None
@@ -215,11 +216,11 @@ def generate_raw_sequences(length=10, horizon=5,
         random_state = np.random.RandomState(seed)
 
         for i in EXPERIMENT_MODES[experiment]:
-            if experiment == 'time-dependent':
+            if experiment == 'time_dependent':
                 noise_profile = [0.1 * i * k for k in range(length + horizon)]
             elif experiment == 'static':
                 noise_profile = [0.1 * i for _ in range(length + horizon)]
-            elif experiment == 'long-horizon':
+            elif experiment == 'long_horizon':
                 noise_profile = [0.1 * k for k in range(length + horizon)]
                 mean = 1
                 variance = 1
