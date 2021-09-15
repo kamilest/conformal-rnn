@@ -13,7 +13,7 @@ import torch
 #     but every dataset is generated with series lengths following a geometric
 #     distribution depending on horizon and mean sequence length (see code).
 #   time_dependent: Controls increasing noise amplitude within a single
-#   time-series.
+#     time-series.
 #   static: Controls noise amplitudes across the collection of time-series.
 #   long_horizon: Controls the horizon length of time-series.
 # See paper for details.
@@ -23,7 +23,7 @@ EXPERIMENT_MODES = {
     'dynamic_lengths': [2, 10],
     'time_dependent': range(1, 6),
     'static': range(1, 6),
-    'long_horizon': [5, 10, 100],
+    'long_horizon': [100],
 }
 
 HORIZONS = {
@@ -31,7 +31,7 @@ HORIZONS = {
     'dynamic_lengths': 10,
     'time_dependent': 5,
     'static': 5,
-    'long_horizon': [5, 10, 100]
+    'long_horizon': [100]
 }
 
 MAX_SEQUENCE_LENGTHS = {
@@ -189,7 +189,6 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
     return X, Y, sequence_lengths
 
 
-# TODO save datasets with seed
 def generate_raw_sequences(length=10, horizon=5,
                            n_train=2000, n_test=500,
                            cached=True,
@@ -205,8 +204,8 @@ def generate_raw_sequences(length=10, horizon=5,
     if cached:
         raw_sequences = []
         for i in EXPERIMENT_MODES[experiment]:
-            with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
-                    experiment, i),
+            with open('processed_data/synthetic-{}-{}-{}.pkl'.format(
+                    experiment, i, seed),
                     'rb') as f:
                 raw_train_sequences, raw_test_sequences = \
                     pickle.load(f)
@@ -262,8 +261,8 @@ def generate_raw_sequences(length=10, horizon=5,
                     random_state=random_state)
             sequence_lengths_test = sequence_lengths_test - horizon
 
-            with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
-                    experiment, i),
+            with open('processed_data/synthetic-{}-{}-{}.pkl'.format(
+                    experiment, i, seed),
                     'wb') as f:
                 pickle.dump(((X_train, Y_train, sequence_lengths_train),
                              (X_test, Y_test, sequence_lengths_test)),
