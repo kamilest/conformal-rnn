@@ -188,6 +188,7 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
     return X, Y, sequence_lengths
 
 
+# TODO save datasets with seed
 def generate_raw_sequences(length=10, horizon=5,
                            n_train=2000, n_test=500,
                            cached=True,
@@ -274,6 +275,7 @@ def generate_raw_sequences(length=10, horizon=5,
     return raw_sequences
 
 
+# TODO n_calibration to more informative name
 def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5,
                           seed=0):
     (X_train, Y_train, sequence_lengths_train), \
