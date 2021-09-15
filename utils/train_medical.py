@@ -53,7 +53,7 @@ TIMESERIES_LENGTHS = {'mimic': 47,  # 49 - horizon
 def run_medical_experiments(dataset='mimic', baselines=None, retrain=False,
                             params=None, correct_conformal=True,
                             save_model=True, save_results=True,
-                            seed=None):
+                            seed=0):
     # Models
     baselines = BASELINES.keys() if baselines is None else baselines
     for baseline in baselines:
@@ -73,7 +73,6 @@ def run_medical_experiments(dataset='mimic', baselines=None, retrain=False,
 
     baseline_results = {baseline: {} for baseline in BASELINES.keys()}
 
-    seed = 0 if seed is None else seed
     torch.manual_seed(seed)
 
     if retrain:
