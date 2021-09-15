@@ -14,7 +14,7 @@ torch.manual_seed(1)
 
 
 class DPRNN(nn.Module):
-    def __init__(self, mode="LSTM", epochs=5, batch_size=150, max_steps=50,
+    def __init__(self, rnn_mode="LSTM", epochs=5, batch_size=150, max_steps=50,
                  input_size=1, lr=0.01, output_size=1, embedding_size=20,
                  n_layers=1, n_steps=50, dropout_prob=0.5, **kwargs):
 
@@ -30,7 +30,7 @@ class DPRNN(nn.Module):
         self.NUM_LAYERS = n_layers
         self.N_STEPS = n_steps
 
-        self.mode = mode
+        self.mode = rnn_mode
         self.dropout_prob = dropout_prob
         self.dropout = nn.Dropout(p=dropout_prob)
 
