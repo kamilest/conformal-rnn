@@ -108,12 +108,12 @@ def run_medical_experiments(dataset='mimic', baselines=None, retrain=False,
 
             baseline_results[baseline] = results
 
-            if save_model and conformal:
-                torch.save(model, 'saved_models/{}_{}_{}_{}.pt'
+            if save_model:
+                torch.save(model, 'saved_models/{}-{}-{}-{}.pt'
                            .format(dataset, baseline, params['rnn_mode'], seed))
             if save_results:
                 corr = '_uncorrected' if not correct_conformal else ''
-                with open('saved_results/{}_{}{}_{}.pkl'.format(dataset,
+                with open('saved_results/{}-{}{}-{}.pkl'.format(dataset,
                                                                 baseline, corr,
                                                                 seed),
                           'wb') as f:
@@ -123,7 +123,7 @@ def run_medical_experiments(dataset='mimic', baselines=None, retrain=False,
         for baseline in baselines:
             corr = '_uncorrected' if (baseline in CONFORMAL_BASELINES
                                       and not correct_conformal) else ''
-            with open('saved_results/{}_{}{}_{}.pkl'.format(dataset, baseline,
+            with open('saved_results/{}-{}{}-{}.pkl'.format(dataset, baseline,
                                                             corr, seed),
                       'rb') as f:
                 results = pickle.load(f)
