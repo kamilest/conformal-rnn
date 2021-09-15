@@ -13,13 +13,6 @@ from utils.data_processing_eeg import get_eeg_splits
 from utils.data_processing_mimic import get_mimic_splits
 from utils.performance import evaluate_performance, evaluate_cfrnn_performance
 
-DEFAULT_PARAMS = {'batch_size': 150,
-                  'embedding_size': 20,
-                  'coverage': 0.9,
-                  'lr': 0.01,
-                  'n_steps': 1000,
-                  'input_size': 1,
-                  'rnn_mode': 'LSTM'}
 
 BASELINES = {'CFRNN': CFRNN,
              'CFRNN_normalised': CFRNN_normalised,
@@ -27,6 +20,14 @@ BASELINES = {'CFRNN': CFRNN,
              'QRNN': QRNN}
 
 CONFORMAL_BASELINES = ['CFRNN', 'CFRNN_normalised']
+
+DEFAULT_PARAMS = {'batch_size': 150,
+                  'embedding_size': 20,
+                  'coverage': 0.9,
+                  'lr': 0.01,
+                  'n_steps': 1000,
+                  'input_size': 1,
+                  'rnn_mode': 'LSTM'}
 
 # Epochs are counted differently in DPRNN and QRNN compared to CoRNN but
 # similar number of iterations are performed; see implementation details.
