@@ -32,7 +32,7 @@ def get_critical_scores(calibration_scores, q):
 
 class CFRNN(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
-                 error_rate=0.05, mode='LSTM', **kwargs):
+                 error_rate=0.05, rnn_mode='LSTM', **kwargs):
         super(CFRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
@@ -42,12 +42,12 @@ class CFRNN(torch.nn.Module):
         self.output_size = output_size
         self.alpha = error_rate
 
-        self.mode = mode
-        if self.mode == 'RNN':
+        self.rnn_mode = rnn_mode
+        if self.rnn_mode == 'RNN':
             self.forecaster_rnn = torch.nn.RNN(input_size=input_size,
                                                hidden_size=embedding_size,
                                                batch_first=True)
-        elif self.mode == 'GRU':
+        elif self.rnn_mode == 'GRU':
             self.forecaster_rnn = torch.nn.GRU(input_size=input_size,
                                                hidden_size=embedding_size,
                                                batch_first=True)
@@ -69,7 +69,7 @@ class CFRNN(torch.nn.Module):
             h_0 = None
 
         # [batch, horizon, output_size]
-        if self.mode == "LSTM":
+        if self.rnn_mode == "LSTM":
             _, (h_n, c_n) = self.forecaster_rnn(x.float(), state)
         else:
             _, h_n = self.forecaster_rnn(x.float(), h_0)
