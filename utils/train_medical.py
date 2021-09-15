@@ -2,11 +2,10 @@
 # Licensed under the BSD 3-clause license
 
 import pickle
-from enum import Enum
 
 import torch
 
-from models.cfrnn import CFRNN
+from models.cfrnn import CFRNN, CFRNN_normalised
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from utils.data_processing_covid import get_covid_splits
@@ -14,129 +13,120 @@ from utils.data_processing_eeg import get_eeg_splits
 from utils.data_processing_mimic import get_mimic_splits
 from utils.performance import evaluate_performance, evaluate_cornn_performance
 
-
-class BASELINES(Enum):
-    CFRNN = CFRNN
-    DPRNN = DPRNN
-    QRNN = QRNN
-
-
-BASELINE_CLASSES = {BASELINES.CFRNN: CFRNN,
-                    BASELINES.DPRNN: DPRNN,
-                    BASELINES.QRNN: QRNN}
-
 DEFAULT_PARAMS = {'batch_size': 150,
                   'embedding_size': 20,
                   'coverage': 0.9,
                   'lr': 0.01,
                   'n_steps': 1000,
-                  'input_size': 1}
+                  'input_size': 1,
+                  'rnn_mode': 'LSTM'}
+
+BASELINES = {'CFRNN': CFRNN,
+             'CFRNN_normalised': CFRNN_normalised,
+             'DPRNN': DPRNN,
+             'QRNN': QRNN}
+
+CONFORMAL_BASELINES = ['CFRNN', 'CFRNN_normalised']
 
 # Epochs are counted differently in DPRNN and QRNN compared to CoRNN but
 # similar number of iterations are performed; see implementation details.
 EPOCHS = {
-    BASELINES.CFRNN: {'mimic': 1000, 'eeg': 100, 'covid': 1000},
-    BASELINES.DPRNN: {'mimic': 10, 'eeg': 10, 'covid': 10},
-    BASELINES.QRNN: {'mimic': 10, 'eeg': 10, 'covid': 10}
+    'CFRNN': {'mimic': 1000, 'eeg': 100, 'covid': 1000},
+    'CFRNN_normalised': {'mimic': 1000, 'eeg': 100, 'covid': 1000},
+    'DPRNN': {'mimic': 10, 'eeg': 10, 'covid': 10},
+    'QRNN': {'mimic': 10, 'eeg': 10, 'covid': 10}
 }
 
-DATASET_SPLIT_FNS = {'mimic': get_mimic_splits,
-                     'eeg': get_eeg_splits,
-                     'covid': get_covid_splits}
+DATASET_SPLIT_FUNCTIONS = {'mimic': get_mimic_splits,
+                           'eeg': get_eeg_splits,
+                           'covid': get_covid_splits}
 
 HORIZON_LENGTHS = {'mimic': 2,
                    'eeg': 10,
                    'covid': 50}
 
-TS_LENGTHS = {'mimic': 47,  # 49 - horizon
-              'eeg': 40,
-              'covid': 100}
+TIMESERIES_LENGTHS = {'mimic': 47,  # 49 - horizon
+                      'eeg': 40,
+                      'covid': 100}
 
 
-def run_medical_experiments(params=None, baselines=None, retrain=False,
-                            dataset='mimic', length=None, horizon=None,
-                            correct_conformal=True, save_model=False,
-                            save_results=True, rnn_mode='LSTM', seed=None):
+def run_medical_experiments(dataset='mimic', baselines=None, retrain=False,
+                            params=None, correct_conformal=True,
+                            save_model=True, save_results=True,
+                            seed=None):
     # Models
-    # TODO baseline class keys
-    baselines = BASELINE_CLASSES.keys() if baselines is None else baselines
+    baselines = BASELINES.keys() if baselines is None else baselines
     for baseline in baselines:
-        assert baseline in BASELINE_CLASSES.keys(), 'Invalid baselines'
+        assert baseline in BASELINES.keys(), 'Invalid baselines'
 
     # Datasets
-    assert dataset in DATASET_SPLIT_FNS.keys(), 'Invalid dataset'
-    split_fn = DATASET_SPLIT_FNS[dataset]
-    horizon = HORIZON_LENGTHS[dataset] if horizon is None else horizon
-    length = TS_LENGTHS[dataset] if length is None else length
+    assert dataset in DATASET_SPLIT_FUNCTIONS.keys(), 'Invalid dataset'
+
+    split_fn = DATASET_SPLIT_FUNCTIONS[dataset]
+    horizon = HORIZON_LENGTHS[dataset]
+    length = TIMESERIES_LENGTHS[dataset]
 
     # Parameters
     params = DEFAULT_PARAMS if params is None else params
     params['max_steps'] = length
     params['output_size'] = horizon
 
-    baseline_results = dict({BASELINES.CoRNN: {}, BASELINES.QRNN: {},
-                             BASELINES.DPRNN: {}})
+    baseline_results = {baseline: {} for baseline in BASELINES.keys()}
 
-    torch.manual_seed(0 if seed is None else seed)
-    if seed is not None:
-        retrain = True
+    seed = 0 if seed is None else seed
+    torch.manual_seed(seed)
 
     if retrain:
         for baseline in baselines:
             print('Training {}'.format(baseline))
 
-            # TODO fix names
-            conformal = baseline == BASELINES.CFRNN
+            conformal = baseline in CONFORMAL_BASELINES
             train_dataset, calibration_dataset, test_dataset = \
                 split_fn(conformal=conformal, horizon=horizon, seed=seed)
 
             params['epochs'] = EPOCHS[baseline][dataset]
 
             if conformal:
-                model = CFRNN(
+                model = BASELINES[baseline](
                     embedding_size=params['embedding_size'],
                     horizon=horizon,
                     error_rate=1 - params['coverage'],
-                    mode=rnn_mode,
-                    normalised=False)
+                    mode=params['rnn_mode'])
 
-                model.fit(train_dataset, calibration_dataset,
-                          epochs=params['epochs'], lr=params['lr'],
-                          batch_size=params['batch_size'])
-
+                # TODO adjust normalised argument
                 results = evaluate_cornn_performance(model, test_dataset,
                                                      correct_conformal,
                                                      normalised=False)
 
             else:
-                model = BASELINE_CLASSES[baseline](**params)
+                model = BASELINES[baseline](**params)
 
                 model.fit(train_dataset[0], train_dataset[1])
 
-                results = evaluate_performance(model, test_dataset[0],
+                results = evaluate_performance(model,
+                                               test_dataset[0],
                                                test_dataset[1],
-                                               coverage=params['coverage'],
-                                               error_threshold='Auto')
+                                               coverage=params['coverage'])
 
             baseline_results[baseline] = results
 
             if save_model and conformal:
-                torch.save(model, 'saved_models/{}_{}_{}.pt'.format(dataset,
-                                                                    baseline,
-                                                                    rnn_mode))
+                torch.save(model, 'saved_models/{}_{}_{}_{}.pt'
+                           .format(dataset, baseline, params['rnn_mode'], seed))
             if save_results:
                 corr = '_uncorrected' if not correct_conformal else ''
-                with open('saved_results/{}_{}{}.pkl'.format(dataset,
-                                                             baseline, corr),
+                with open('saved_results/{}_{}{}_{}.pkl'.format(dataset,
+                                                                baseline, corr,
+                                                                seed),
                           'wb') as f:
                     pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     else:
         for baseline in baselines:
-            corr = '_uncorrected' if (baseline == BASELINES.CoRNN
+            corr = '_uncorrected' if (baseline in CONFORMAL_BASELINES
                                       and not correct_conformal) else ''
-            with open('saved_results/{}_{}{}.pkl'.format(dataset, baseline,
-                                                         corr),
+            with open('saved_results/{}_{}{}_{}.pkl'.format(dataset, baseline,
+                                                            corr, seed),
                       'rb') as f:
                 results = pickle.load(f)
             baseline_results[baseline] = results
