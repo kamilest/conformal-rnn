@@ -44,7 +44,7 @@ def run_synthetic_experiments(experiment='time-dependent', baselines=None,
                               retrain=False, params=None,
                               generate_datasets=True, correct_conformal=True,
                               save_model=False, save_results=True,
-                              rnn_mode=None, seed=None):
+                              rnn_mode=None, seed=0):
     # Models
     baselines = BASELINES.keys() if baselines is None else \
         baselines
@@ -56,9 +56,7 @@ def run_synthetic_experiments(experiment='time-dependent', baselines=None,
 
     baseline_results = {baseline: [] for baseline in BASELINES.keys()}
 
-    if seed is not None:
-        retrain = True
-    torch.manual_seed(0 if seed is None else seed)
+    torch.manual_seed(seed)
 
     if retrain:
         raw_sequence_datasets = \
