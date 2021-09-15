@@ -14,7 +14,7 @@ from models.rnn import RNN
 from utils.data_processing_synthetic import \
     EXPERIMENT_MODES, HORIZONS, generate_raw_sequences, get_synthetic_dataset, \
     MAX_SEQUENCE_LENGTHS
-from utils.performance import evaluate_performance, evaluate_cornn_performance
+from utils.performance import evaluate_performance, evaluate_cfrnn_performance
 
 CONFORMAL_FORECASTER_NAME = 'CFRNN'
 
@@ -100,13 +100,11 @@ def run_synthetic_experiments(parameters=None, baselines=None, retrain=False,
                               epochs=params['epochs'], lr=params['lr'],
                               batch_size=params['batch_size'])
 
-                    result = evaluate_cornn_performance(model, test_dataset,
-                                                        correct_conformal,
-                                                        normalised=False)
+                    result = evaluate_cfrnn_performance(model, test_dataset,
+                                                        correct_conformal)
                     result_normalised = \
-                        evaluate_cornn_performance(model, test_dataset,
-                                                   correct_conformal,
-                                                   normalised=True)
+                        evaluate_cfrnn_performance(model, test_dataset,
+                                                   correct_conformal)
                     baseline_results[CONFORMAL_FORECASTER_NAME].append(result)
                     baseline_results[CONFORMAL_FORECASTER_NAME +
                                      '-normalised'].append(

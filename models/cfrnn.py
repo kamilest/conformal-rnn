@@ -147,7 +147,7 @@ class CFRNN(torch.nn.Module):
         # [horizon, output_size]
         q = min((n_calibration + 1.) * (1 - self.alpha) / n_calibration, 1)
         corrected_q = min((n_calibration + 1.) * (
-                    1 - self.alpha / self.horizon) / n_calibration, 1)
+                1 - self.alpha / self.horizon) / n_calibration, 1)
 
         self.critical_calibration_scores = get_critical_scores(
             calibration_scores=self.calibration_scores,
@@ -171,7 +171,7 @@ class CFRNN(torch.nn.Module):
         # Collect calibration scores
         self.calibrate(calibration_dataset)
 
-    def predict(self, x, state=None, corrected=True, normalised=False):
+    def predict(self, x, state=None, corrected=True):
         """Forecasts the time series with conformal uncertainty intervals."""
         out, hidden = self(x, state)
 
@@ -187,15 +187,14 @@ class CFRNN(torch.nn.Module):
         # [batch_size, 2, horizon, n_outputs]
         return torch.stack((lower, upper), dim=1), hidden
 
-    def evaluate_coverage(self, test_dataset, corrected=True, normalised=False):
+    def evaluate_coverage(self, test_dataset, corrected=True):
         self.eval()
 
         independent_coverages, joint_coverages, intervals = [], [], []
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
 
         for sequences, targets, lengths in test_loader:
-            batch_intervals, _ = self.predict(sequences, corrected=corrected,
-                                              normalised=normalised)
+            batch_intervals, _ = self.predict(sequences, corrected=corrected)
             intervals.append(batch_intervals)
             independent_coverage, joint_coverage = coverage(batch_intervals,
                                                             targets)

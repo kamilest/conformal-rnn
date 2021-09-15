@@ -5,19 +5,16 @@
 # Helper functions and utilities for deep learning models
 # ---------------------------------------------------------
 
-from matplotlib import pyplot as plt
-
 from models.bjrnn import RNN_uncertainty_wrapper
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from utils.data_processing_synthetic import *
 
 
-def evaluate_cornn_performance(model, test_dataset, correct_conformal=True,
-                               normalised=True):
+def evaluate_cfrnn_performance(model, test_dataset, correct_conformal=True):
     independent_coverages, joint_coverages, intervals = \
         model.evaluate_coverage(
-            test_dataset, corrected=correct_conformal, normalised=normalised)
+            test_dataset, corrected=correct_conformal)
     mean_independent_coverage = torch.mean(
         independent_coverages.float(),
         dim=0)
@@ -26,8 +23,7 @@ def evaluate_cornn_performance(model, test_dataset, correct_conformal=True,
     interval_widths = (intervals[:, 1] - intervals[:, 0]).squeeze()
     point_predictions, errors = \
         model.get_point_predictions_and_errors(test_dataset,
-                                               corrected=correct_conformal,
-                                               normalised=normalised)
+                                               corrected=correct_conformal)
 
     results = {'Point predictions': point_predictions,
                'Errors': errors,
