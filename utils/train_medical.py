@@ -11,7 +11,7 @@ from models.qrnn import QRNN
 from utils.data_processing_covid import get_covid_splits
 from utils.data_processing_eeg import get_eeg_splits
 from utils.data_processing_mimic import get_mimic_splits
-from utils.performance import evaluate_performance, evaluate_cornn_performance
+from utils.performance import evaluate_performance, evaluate_cfrnn_performance
 
 DEFAULT_PARAMS = {'batch_size': 150,
                   'embedding_size': 20,
@@ -93,10 +93,8 @@ def run_medical_experiments(dataset='mimic', baselines=None, retrain=False,
                     error_rate=1 - params['coverage'],
                     mode=params['rnn_mode'])
 
-                # TODO adjust normalised argument
-                results = evaluate_cornn_performance(model, test_dataset,
-                                                     correct_conformal,
-                                                     normalised=False)
+                results = evaluate_cfrnn_performance(model, test_dataset,
+                                                     correct_conformal)
 
             else:
                 model = BASELINES[baseline](**params)
