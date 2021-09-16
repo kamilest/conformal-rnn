@@ -33,20 +33,6 @@ DEFAULT_PARAMETERS = {
     'periodicity': None,
 }
 
-HORIZONS = {
-    'periodic': 10,
-    'time_dependent': 5,
-    'static': 5,
-    'long_horizon': [100]
-}
-
-SEQUENCE_LENGTHS = {
-    'periodic': 20,
-    'time_dependent': 10,
-    'static': 10,
-    'long_horizon': 10
-}
-
 
 def autoregressive(X_gen, w):
     """ Generates the autoregressive component of a single time series
@@ -138,9 +124,6 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
         random_state = np.random.RandomState(0)
 
     params = DEFAULT_PARAMETERS.copy()
-    params['horizon'] = HORIZONS[experiment]
-    params['length'] = HORIZONS[experiment]
-
     if custom_parameters is not None:
         for key in custom_parameters.keys():
             params[key] = custom_parameters[key]
