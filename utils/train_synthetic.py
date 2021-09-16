@@ -12,7 +12,7 @@ from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from models.rnn import RNN
 from utils.data_processing_synthetic import \
-    EXPERIMENT_MODES, HORIZONS, generate_raw_sequences, get_synthetic_dataset, \
+    EXPERIMENT_MODES, HORIZONS, get_raw_sequences, get_synthetic_dataset, \
     SEQUENCE_LENGTHS
 from utils.performance import evaluate_performance, evaluate_cfrnn_performance
 
@@ -60,9 +60,9 @@ def run_synthetic_experiments(experiment='time-dependent', baselines=None,
 
     if retrain:
         raw_sequence_datasets = \
-            generate_raw_sequences(experiment=experiment,
-                                   cached=(not generate_datasets),
-                                   seed=seed)
+            get_raw_sequences(experiment=experiment,
+                              cached=(not generate_datasets),
+                              seed=seed)
         for baseline in baselines:
             print('Training {}'.format(baseline))
 
