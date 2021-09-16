@@ -42,6 +42,16 @@ MAX_SEQUENCE_LENGTHS = {
     'long_horizon': 10
 }
 
+DEFAULT_PARAMETERS = {
+    'length': 15,
+    'horizon': 5,
+    'mean': 1,
+    'variance': 2,
+    'memory_factor': 0.9,
+    'amplitude': 1,
+    'periodicity': None,
+}
+
 
 def autoregressive(X_gen, w):
     """ Generates the autoregressive component of a single time series
@@ -189,17 +199,14 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
     return X, Y, sequence_lengths
 
 
-def generate_raw_sequences(length=10, horizon=5,
-                           n_train=2000, n_test=500,
+def generate_raw_sequences(n_train=2000, n_test=500,
                            cached=True,
-                           mean=1,
-                           variance=2,
-                           memory_factor=0.9,
                            experiment='long_horizon',
                            seed=0):
     # Time series parameters
-    periodicity = None
-    amplitude = 1
+    params = DEFAULT_PARAMETERS.copy()
+    length = params['length']
+    horizon = params['horizon']
 
     if cached:
         raw_sequences = []
@@ -236,12 +243,12 @@ def generate_raw_sequences(length=10, horizon=5,
                     n_samples=n_train,
                     seq_len=length,
                     horizon=horizon,
-                    periodicity=periodicity,
-                    amplitude=amplitude,
-                    X_mean=mean,
-                    X_variance=variance,
+                    periodicity=params['periodicity'],
+                    amplitude=params['amplitude'],
+                    X_mean=params['mean'],
+                    X_variance=params['variance'],
                     experiment=experiment,
-                    memory_factor=memory_factor,
+                    memory_factor=params['memory_factor'],
                     noise_profile=noise_profile,
                     random_state=random_state)
             sequence_lengths_train = sequence_lengths_train - horizon
@@ -251,12 +258,12 @@ def generate_raw_sequences(length=10, horizon=5,
                     n_samples=n_test,
                     seq_len=length,
                     horizon=horizon,
-                    periodicity=periodicity,
-                    amplitude=amplitude,
-                    X_mean=mean,
-                    X_variance=variance,
-                    memory_factor=memory_factor,
+                    periodicity=params['periodicity'],
+                    amplitude=params['amplitude'],
+                    X_mean=params['mean'],
+                    X_variance=params['variance'],
                     experiment=experiment,
+                    memory_factor=params['memory_factor'],
                     noise_profile=noise_profile,
                     random_state=random_state)
             sequence_lengths_test = sequence_lengths_test - horizon
