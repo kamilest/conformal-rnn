@@ -19,7 +19,7 @@ EXPERIMENT_MODES = {
     'periodic': [2, 10],
     'time_dependent': range(1, 6),
     'static': range(1, 6),
-    'long_horizon': [100],
+    'long_horizon': 100
 }
 
 DEFAULT_PARAMETERS = {
@@ -130,7 +130,7 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
 
     # TODO cleanup experiment settings.
     if experiment == 'long_horizon':
-        params['horizon'] = 100
+        params['horizon'] = EXPERIMENT_MODES[experiment]
         dynamic_sequence_lengths = False
 
     # Setting static or dynamic sequence lengths
