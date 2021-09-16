@@ -12,10 +12,9 @@ from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from models.rnn import RNN
 from utils.data_processing_synthetic import \
-    EXPERIMENT_MODES, HORIZONS, get_raw_sequences, get_synthetic_dataset, \
-    SEQUENCE_LENGTHS
+    EXPERIMENT_MODES, get_raw_sequences, get_synthetic_dataset, \
+    DEFAULT_PARAMETERS
 from utils.performance import evaluate_performance, evaluate_cfrnn_performance
-
 
 BASELINES = {'CFRNN': CFRNN,
              'CFRNN_normalised': CFRNN_normalised,
@@ -25,24 +24,27 @@ BASELINES = {'CFRNN': CFRNN,
 
 CONFORMAL_BASELINES = ['CFRNN', 'CFRNN_normalised']
 
-DEFAULT_SYNTHETIC_PARAMS = {'input_size': 1,  # RNN parameters
-                            'epochs': 10,
-                            'n_steps': 500,
-                            'batch_size': 100,
-                            'embedding_size': 20,
-                            'max_steps': 10,
-                            'output_size': 5,
-                            'coverage': 0.9,
-                            'lr': 0.01,
-                            'rnn_mode': 'LSTM'}
+DEFAULT_SYNTHETIC_TRAINING_PARAMETERS = {'input_size': 1,  # RNN parameters
+                                         'epochs': 10,
+                                         'n_steps': 500,
+                                         'batch_size': 100,
+                                         'embedding_size': 20,
+                                         'max_steps': 10,
+                                         'output_size': 5,
+                                         'coverage': 0.9,
+                                         'lr': 0.01,
+                                         'rnn_mode': 'LSTM'}
+
 
 def get_max_steps(train_dataset, test_dataset):
     return max(max(train_dataset[2]), max(test_dataset[2]))
 
 
-def run_synthetic_experiments(experiment='time-dependent', baselines=None,
+def run_synthetic_experiments(experiment, baselines=None,
                               retrain=False, params=None,
-                              generate_datasets=True, correct_conformal=True,
+                              dynamic_sequence_lengths=False,
+                              horizon=None,
+                              cached_datasets=True, correct_conformal=True,
                               save_model=False, save_results=True,
                               rnn_mode=None, seed=0):
     # Models
@@ -61,28 +63,24 @@ def run_synthetic_experiments(experiment='time-dependent', baselines=None,
     if retrain:
         raw_sequence_datasets = \
             get_raw_sequences(experiment=experiment,
-                              cached=(not generate_datasets),
+                              cached=cached_datasets,
+                              dynamic_sequence_lengths=dynamic_sequence_lengths,
+                              horizon=horizon,
                               seed=seed)
         for baseline in baselines:
             print('Training {}'.format(baseline))
 
             for i, raw_sequence_dataset in enumerate(raw_sequence_datasets):
                 print('Training dataset {}'.format(i))
-                # Parameters
-                params = DEFAULT_SYNTHETIC_PARAMS.copy() \
-                    if params is None else params
 
-                # TODO clean up experiment mode/horizon/periodicity and other
-                #  argument clash
-                if experiment == 'long-horizon':
-                    params['horizon'] = EXPERIMENT_MODES[experiment][i]
-                else:
-                    params['horizon'] = HORIZONS[experiment]
-
-                params['output_size'] = params['horizon']
+                if params is None:
+                    params = DEFAULT_SYNTHETIC_TRAINING_PARAMETERS.copy()
 
                 if rnn_mode is not None:
                     params['rnn_mode'] = rnn_mode
+
+                params['output_size'] = \
+                    horizon if horizon else DEFAULT_PARAMETERS['horizon']
 
                 if baseline in CONFORMAL_BASELINES:
                     params['epochs'] = 1000
@@ -107,12 +105,9 @@ def run_synthetic_experiments(experiment='time-dependent', baselines=None,
                         get_synthetic_dataset(raw_sequence_dataset,
                                               conformal=False, seed=seed)
 
-                    # TODO long horizon vs dynamic lengths experiment
-                    if experiment == 'dynamic-lengths':
+                    if dynamic_sequence_lengths or horizon is None:
                         params['max_steps'] = get_max_steps(train_dataset,
                                                             test_dataset)
-                    else:
-                        params['max_steps'] = SEQUENCE_LENGTHS[experiment]
 
                     if baseline == 'BJRNN':
                         RNN_model = RNN(**params)
