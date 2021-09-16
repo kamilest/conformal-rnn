@@ -148,7 +148,6 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
     # TODO cleanup experiment settings.
     # Setting static or dynamic sequence lengths
     if dynamic_sequence_lengths:
-        # seq_len = max(params['length'], params['horizon'])
         sequence_lengths = \
             params['horizon'] + params['length'] // 2 \
             + random_state.geometric(p=2 / params['length'], size=n_samples)
