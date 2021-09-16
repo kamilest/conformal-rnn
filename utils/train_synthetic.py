@@ -13,7 +13,7 @@ from models.qrnn import QRNN
 from models.rnn import RNN
 from utils.data_processing_synthetic import \
     EXPERIMENT_MODES, HORIZONS, generate_raw_sequences, get_synthetic_dataset, \
-    MAX_SEQUENCE_LENGTHS
+    SEQUENCE_LENGTHS
 from utils.performance import evaluate_performance, evaluate_cfrnn_performance
 
 
@@ -112,7 +112,7 @@ def run_synthetic_experiments(experiment='time-dependent', baselines=None,
                         params['max_steps'] = get_max_steps(train_dataset,
                                                             test_dataset)
                     else:
-                        params['max_steps'] = MAX_SEQUENCE_LENGTHS[experiment]
+                        params['max_steps'] = SEQUENCE_LENGTHS[experiment]
 
                     if baseline == 'BJRNN':
                         RNN_model = RNN(**params)
