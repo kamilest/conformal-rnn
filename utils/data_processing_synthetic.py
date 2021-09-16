@@ -12,14 +12,12 @@ import torch
 #   time_dependent: Controls increasing noise amplitude within a single
 #     time-series.
 #   static: Controls noise amplitudes across the collection of time-series.
-#   long_horizon: Controls the horizon length of time-series.
 # See paper for details.
 
 EXPERIMENT_MODES = {
     'periodic': [2, 10],
     'time_dependent': range(1, 6),
     'static': range(1, 6),
-    'long_horizon': 100
 }
 
 DEFAULT_PARAMETERS = {
@@ -116,6 +114,7 @@ def split_train_sequence(X_full, horizon):
 def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
                                              n_features=1,
                                              dynamic_sequence_lengths=False,
+                                             horizon=None,
                                              custom_parameters=None,
                                              random_state=None):
     assert experiment in EXPERIMENT_MODES.keys()
@@ -129,8 +128,8 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
             params[key] = custom_parameters[key]
 
     # TODO cleanup experiment settings.
-    if experiment == 'long_horizon':
-        params['horizon'] = EXPERIMENT_MODES[experiment]
+    if horizon is not None:
+        params['horizon'] = horizon
         dynamic_sequence_lengths = False
 
     # Setting static or dynamic sequence lengths
@@ -164,10 +163,7 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
         noise_vars = [[0] * sl for sl in sequence_lengths]
 
     if experiment == 'periodic':
-        params['length'] = 20
-        params['horizon'] = 10
         params['periodicity'] = setting
-        params['amplitude'] = 5
 
     # Create the input features of the generating process
     X_gen = [random_state.normal(params['mean'], params['variance'], (seq_len,
