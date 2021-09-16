@@ -28,7 +28,7 @@ DEFAULT_PARAMETERS = {
     'mean': 1,
     'variance': 2,
     'memory_factor': 0.9,
-    'amplitude': 1,
+    'amplitude': 5,
     'harmonics': 1,
     'periodicity': None,
 }
