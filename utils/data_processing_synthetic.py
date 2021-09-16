@@ -131,6 +131,7 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
     # TODO cleanup experiment settings.
     if experiment == 'long_horizon':
         params['horizon'] = 100
+        dynamic_sequence_lengths = False
 
     # Setting static or dynamic sequence lengths
     if dynamic_sequence_lengths:
