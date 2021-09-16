@@ -127,7 +127,6 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
         for key in custom_parameters.keys():
             params[key] = custom_parameters[key]
 
-    # TODO cleanup experiment settings.
     if horizon is not None:
         params['horizon'] = horizon
         dynamic_sequence_lengths = False
@@ -156,9 +155,9 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
         params['periodicity'] = setting
 
     # Create the input features of the generating process
-    X_gen = [random_state.normal(params['mean'], params['variance'], (seq_len,
-                                                                      n_features))
-             for seq_len in sequence_lengths]
+    X_gen = [random_state.normal(params['mean'],
+                                 params['variance'], (sl, n_features))
+             for sl in sequence_lengths]
 
     w = np.array([params['memory_factor'] ** k for k in range(np.max(
         sequence_lengths))])
@@ -172,9 +171,8 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
         periodic = [seasonal(sl, params['periodicity'], params['amplitude'],
                              params['harmonics'],
                              random_state=random_state,
-                             asynchronous=dynamic_sequence_lengths) for
-                    sl in
-                    sequence_lengths]
+                             asynchronous=dynamic_sequence_lengths)
+                    for sl in sequence_lengths]
     else:
         periodic = np.array([np.zeros(sl) for sl in sequence_lengths]) \
             .reshape(-1, 1)
@@ -184,8 +182,6 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
     # Splitting time series into training sequence X and target sequence Y;
     # Y stores the time series predicted targets `horizon` steps away
     X, Y = split_train_sequence(X_full, params['horizon'])
-
-    # Keep the training sequence length
     train_sequence_lengths = sequence_lengths - params['horizon']
 
     return X, Y, train_sequence_lengths
