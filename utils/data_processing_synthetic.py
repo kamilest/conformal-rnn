@@ -118,10 +118,9 @@ class AutoregressiveForecastDataset(torch.utils.data.Dataset):
         return self.X[idx], self.Y[idx], self.sequence_lengths[idx]
 
 
-def generate_autoregressive_forecast_dataset(n_samples=100,
+def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
                                              n_features=1,
                                              params=None,
-                                             experiment='time_dependent',
                                              random_state=None):
     if random_state is None:
         random_state = np.random.RandomState(0)
@@ -148,6 +147,27 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
 
     w = np.array([params['memory_factor'] ** k for k in range(np.max(
         sequence_lengths))])
+
+    if experiment == 'time_dependent':
+        params['noise_profile'] = [0.1 * setting * k for k in range(
+            params['length'] + params['horizon'])]
+    elif experiment == 'static':
+        params['noise_profile'] = [0.1 * setting for _ in range(
+            params['length'] + params['horizon'])]
+    elif experiment == 'long_horizon':
+        params['noise_profile'] = [0.1 * k for k in
+                                   range(params['length'] +
+                                         params['horizon'])]
+        params['mean'] = 1
+        params['variance'] = 1
+        params['horizon'] = 100
+    else:  # noise_mode == 'periodic':
+        params['noise_profile'] = [0.5 * k for k in range(
+            params['length'] + params['horizon'])]
+        params['length'] = 20
+        params['horizon'] = 10
+        params['periodicity'] = setting
+        params['amplitude'] = 5
 
     if experiment == 'static':
         noise_vars = [
@@ -195,15 +215,14 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
         # Examples with sequence lenghts <=`horizon` don't give any
         # information and are excluded.
         # assert np.min(sequence_lengths) > horizon
+    sequence_lengths = sequence_lengths - params['horizon']
     return X, Y, sequence_lengths
 
 
-def generate_raw_sequences(n_train=2000, n_test=500,
-                           cached=True,
-                           experiment='long_horizon',
-                           seed=0):
-    # Time series parameters
-    params = DEFAULT_PARAMETERS.copy()
+def get_raw_sequences(n_train=2000, n_test=500,
+                      cached=True,
+                      experiment='long_horizon',
+                      seed=0):
 
     if cached:
         raw_sequences = []
@@ -219,41 +238,19 @@ def generate_raw_sequences(n_train=2000, n_test=500,
         random_state = np.random.RandomState(seed)
 
         for i in EXPERIMENT_MODES[experiment]:
-            if experiment == 'time_dependent':
-                params['noise_profile'] = [0.1 * i * k for k in range(
-                    params['length'] + params['horizon'])]
-            elif experiment == 'static':
-                params['noise_profile'] = [0.1 * i for _ in range(
-                    params['length'] + params['horizon'])]
-            elif experiment == 'long_horizon':
-                params['noise_profile'] = [0.1 * k for k in
-                                           range(params['length'] +
-                                                 params['horizon'])]
-                params['mean'] = 1
-                params['variance'] = 1
-                params['horizon'] = 100
-            else:  # noise_mode == 'periodic':
-                params['noise_profile'] = [0.5 * k for k in range(
-                    params['length'] + params['horizon'])]
-                params['length'] = 20
-                params['horizon'] = 10
-                params['periodicity'] = i
-                params['amplitude'] = 5
-
             X_train, Y_train, sequence_lengths_train = \
                 generate_autoregressive_forecast_dataset(
                     n_samples=n_train,
-                    params=params,
                     experiment=experiment,
+                    setting=i,
                     random_state=random_state)
-            sequence_lengths_train = sequence_lengths_train - params['horizon']
 
             X_test, Y_test, sequence_lengths_test = \
                 generate_autoregressive_forecast_dataset(
                     n_samples=n_test,
-                    params=params,
+                    experiment=experiment,
+                    setting=i,
                     random_state=random_state)
-            sequence_lengths_test = sequence_lengths_test - params['horizon']
 
             with open('processed_data/synthetic-{}-{}-{}.pkl'.format(
                     experiment, i, seed),
