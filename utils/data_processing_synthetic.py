@@ -118,6 +118,22 @@ class AutoregressiveForecastDataset(torch.utils.data.Dataset):
         return self.X[idx], self.Y[idx], self.sequence_lengths[idx]
 
 
+def split_train_sequence(X_full, horizon):
+    # Splitting time series into training sequence X and target sequence Y;
+    # Y stores the time series predicted targets `horizon` steps away
+    X, Y = [], []
+    for seq in X_full:
+        seq_len = len(seq)
+        if seq_len >= 2 * horizon:
+            X.append(seq[:-horizon])
+            Y.append(seq[-horizon:])
+        elif seq_len > horizon:
+            X.append(seq[:seq_len - horizon])
+            Y.append(seq[-(seq_len - horizon):])
+
+    return X, Y
+
+
 def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
                                              n_features=1,
                                              params=None,
@@ -202,21 +218,12 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
 
     # Splitting time series into training sequence X and target sequence Y;
     # Y stores the time series predicted targets `horizon` steps away
-    X, Y = [], []
-    for seq in X_full:
-        seq_len = len(seq)
-        if seq_len >= 2 * horizon:
-            X.append(seq[:-horizon])
-            Y.append(seq[-horizon:])
-        elif seq_len > horizon:
-            X.append(seq[:seq_len - horizon])
-            Y.append(seq[-(seq_len - horizon):])
+    X, Y = split_train_sequence(X_full, params['horizon'])
 
-        # Examples with sequence lenghts <=`horizon` don't give any
-        # information and are excluded.
-        # assert np.min(sequence_lengths) > horizon
-    sequence_lengths = sequence_lengths - params['horizon']
-    return X, Y, sequence_lengths
+    # Keep the training sequence length
+    train_sequence_lengths = sequence_lengths - params['horizon']
+
+    return X, Y, train_sequence_lengths
 
 
 def get_raw_sequences(n_train=2000, n_test=500,
