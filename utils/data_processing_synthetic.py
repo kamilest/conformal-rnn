@@ -9,9 +9,6 @@ import torch
 # Settings controlling the independent variables of experiments depending on
 # the experiment mode:
 #   periodic: Controls periodicity.
-#   dynamic_lengths: Set to be the same as periodicity for the datasets,
-#     but every dataset is generated with series lengths following a geometric
-#     distribution depending on horizon and mean sequence length (see code).
 #   time_dependent: Controls increasing noise amplitude within a single
 #     time-series.
 #   static: Controls noise amplitudes across the collection of time-series.
@@ -20,7 +17,6 @@ import torch
 
 EXPERIMENT_MODES = {
     'periodic': [2, 10],
-    'dynamic_lengths': [2, 10],
     'time_dependent': range(1, 6),
     'static': range(1, 6),
     'long_horizon': [100],
@@ -32,7 +28,6 @@ DEFAULT_PARAMETERS = {
     'mean': 1,
     'variance': 2,
     'memory_factor': 0.9,
-    'noise_profile': [0.2, 0.4, 0.6, 0.8, 1.],
     'amplitude': 1,
     'harmonics': 1,
     'periodicity': None,
@@ -40,7 +35,6 @@ DEFAULT_PARAMETERS = {
 
 HORIZONS = {
     'periodic': 10,
-    'dynamic_lengths': 10,
     'time_dependent': 5,
     'static': 5,
     'long_horizon': [100]
@@ -48,7 +42,6 @@ HORIZONS = {
 
 SEQUENCE_LENGTHS = {
     'periodic': 20,
-    'dynamic_lengths': 20,
     'time_dependent': 10,
     'static': 10,
     'long_horizon': 10
@@ -136,25 +129,66 @@ def split_train_sequence(X_full, horizon):
 
 def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
                                              n_features=1,
-                                             params=None,
+                                             dynamic_sequence_lengths=False,
+                                             custom_parameters=None,
                                              random_state=None):
+    assert experiment in EXPERIMENT_MODES.keys()
+
     if random_state is None:
         random_state = np.random.RandomState(0)
 
-    if params is None:
-        params = DEFAULT_PARAMETERS.copy()
+    params = DEFAULT_PARAMETERS.copy()
+    params['horizon'] = HORIZONS[experiment]
+    params['length'] = HORIZONS[experiment]
 
-    seq_len = max(params['length'], params['horizon'])
-    horizon = params['horizon']
+    if custom_parameters is not None:
+        for key in custom_parameters.keys():
+            params[key] = custom_parameters[key]
 
-    noise_profile = params['noise_profile']
-
-    if experiment == 'dynamic_lengths':
-        sequence_lengths = horizon + seq_len // 2 \
-                           + random_state.geometric(p=2 / seq_len,
-                                                    size=n_samples)
+    # TODO cleanup experiment settings.
+    # Setting static or dynamic sequence lengths
+    if dynamic_sequence_lengths:
+        # seq_len = max(params['length'], params['horizon'])
+        sequence_lengths = \
+            params['horizon'] + params['length'] // 2 \
+            + random_state.geometric(p=2 / params['length'], size=n_samples)
     else:
-        sequence_lengths = np.array([seq_len + horizon] * n_samples)
+        sequence_lengths = np.array(
+            [params['lengths'] + params['horizon']] * n_samples)
+
+    # Noise profile-dependent settings
+    if experiment == 'static':
+        noise_profile = [0.1 * setting for _ in range(
+            params['length'] + params['horizon'])]
+
+        noise_vars = [
+            [noise_profile[(s * len(noise_profile)) // len(sequence_lengths)]] *
+            sequence_lengths[s] for s in range(len(sequence_lengths))]
+
+    elif experiment == 'time_dependent':
+
+        noise_profile = [0.1 * setting * k for k in range(
+            params['length'] + params['horizon'])]
+
+        # Spread the noise profile across time-steps
+        noise_vars = [[noise_profile[(s * len(noise_profile)) // sl]
+                       for s in range(sl)] for sl in sequence_lengths]
+    else:
+        # No additional noise beyond the variance of X_gen
+        noise_vars = [[0] * sl for sl in sequence_lengths]
+
+    if experiment == 'periodic':
+        params['length'] = 20
+        params['horizon'] = 10
+        params['periodicity'] = setting
+        params['amplitude'] = 5
+
+    elif experiment == 'long_horizon':
+        params['mean'] = 1
+        params['variance'] = 1
+        params['horizon'] = 100
+    else:
+        raise ValueError('Invalid experiment')
 
     # Create the input features of the generating process
     X_gen = [random_state.normal(params['mean'], params['variance'], (seq_len,
@@ -164,50 +198,16 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
     w = np.array([params['memory_factor'] ** k for k in range(np.max(
         sequence_lengths))])
 
-    if experiment == 'time_dependent':
-        params['noise_profile'] = [0.1 * setting * k for k in range(
-            params['length'] + params['horizon'])]
-    elif experiment == 'static':
-        params['noise_profile'] = [0.1 * setting for _ in range(
-            params['length'] + params['horizon'])]
-    elif experiment == 'long_horizon':
-        params['noise_profile'] = [0.1 * k for k in
-                                   range(params['length'] +
-                                         params['horizon'])]
-        params['mean'] = 1
-        params['variance'] = 1
-        params['horizon'] = 100
-    else:  # noise_mode == 'periodic':
-        params['noise_profile'] = [0.5 * k for k in range(
-            params['length'] + params['horizon'])]
-        params['length'] = 20
-        params['horizon'] = 10
-        params['periodicity'] = setting
-        params['amplitude'] = 5
-
-    if experiment == 'static':
-        noise_vars = [
-            [noise_profile[(s * len(noise_profile)) // len(sequence_lengths)]] *
-            sequence_lengths[s] for s in range(len(sequence_lengths))]
-    elif experiment == 'time_dependent' or experiment == 'long_horizon':
-        # Spread the noise profile across time-steps
-        noise_vars = [[noise_profile[(s * len(noise_profile)) // sl]
-                       for s in range(sl)] for sl in sequence_lengths]
-    else:
-        # No additional noise beyond the variance of X_gen
-        noise_vars = [[0] * sl for sl in sequence_lengths]
-
     # X_full stores the time series values generated from features X_gen.
     ar = [autoregressive(x, w).reshape(-1, n_features) for x in X_gen]
     noise = [random_state.normal(0., nv).reshape(-1, n_features) for
              nv in noise_vars]
 
     if params['periodicity'] is not None:
-        asynchronous = experiment == 'dynamic_lengths'
         periodic = [seasonal(sl, params['periodicity'], params['amplitude'],
                              params['harmonics'],
                              random_state=random_state,
-                             asynchronous=asynchronous) for
+                             asynchronous=dynamic_sequence_lengths) for
                     sl in
                     sequence_lengths]
     else:
@@ -230,7 +230,6 @@ def get_raw_sequences(n_train=2000, n_test=500,
                       cached=True,
                       experiment='long_horizon',
                       seed=0):
-
     if cached:
         raw_sequences = []
         for i in EXPERIMENT_MODES[experiment]:
