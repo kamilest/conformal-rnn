@@ -143,21 +143,11 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
 
     # Noise profile-dependent settings
     if experiment == 'static':
-        noise_profile = [0.1 * setting for _ in range(
-            params['length'] + params['horizon'])]
-
-        noise_vars = [
-            [noise_profile[(s * len(noise_profile)) // len(sequence_lengths)]] *
-            sequence_lengths[s] for s in range(len(sequence_lengths))]
+        noise_vars = [[0.1 * setting] * sl for sl in sequence_lengths]
 
     elif experiment == 'time_dependent':
-
-        noise_profile = [0.1 * setting * k for k in range(
-            params['length'] + params['horizon'])]
-
-        # Spread the noise profile across time-steps
-        noise_vars = [[noise_profile[(s * len(noise_profile)) // sl]
-                       for s in range(sl)] for sl in sequence_lengths]
+        noise_vars = [[0.1 * setting * (k / sl) for k in range(sl)]
+                      for sl in sequence_lengths]
     else:
         # No additional noise beyond the variance of X_gen
         noise_vars = [[0] * sl for sl in sequence_lengths]
