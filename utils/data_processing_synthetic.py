@@ -169,13 +169,6 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
         params['periodicity'] = setting
         params['amplitude'] = 5
 
-    elif experiment == 'long_horizon':
-        params['mean'] = 1
-        params['variance'] = 1
-        params['horizon'] = 100
-    else:
-        raise ValueError('Invalid experiment')
-
     # Create the input features of the generating process
     X_gen = [random_state.normal(params['mean'], params['variance'], (seq_len,
                                                                       n_features))
