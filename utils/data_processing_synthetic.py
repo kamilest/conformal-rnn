@@ -238,8 +238,7 @@ def get_raw_sequences(experiment, n_train=2000, n_test=500,
     return raw_sequences
 
 
-# TODO n_calibration to more informative name
-def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5,
+def get_synthetic_dataset(raw_sequences, conformal=True, p_calibration=0.5,
                           seed=0):
     (X_train, Y_train, sequence_lengths_train), \
     (X_test, Y_test, sequence_lengths_test) = raw_sequences
@@ -248,7 +247,7 @@ def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5,
         (X_train, Y_train, sequence_lengths_train), \
         (X_calibration, Y_calibration, sequence_lengths_calibration) = \
             split_train_dataset(X_train, Y_train, sequence_lengths_train,
-                                n_calibration, seed=seed)
+                                p_calibration, seed=seed)
 
         # X: [n_samples, max_seq_len, n_features]
         X_train_tensor = torch.nn.utils.rnn.pad_sequence(X_train,
