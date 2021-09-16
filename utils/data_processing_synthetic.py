@@ -191,10 +191,13 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
     return X, Y, train_sequence_lengths
 
 
-def get_raw_sequences(n_train=2000, n_test=500,
+def get_raw_sequences(experiment, n_train=2000, n_test=500,
                       cached=True,
-                      experiment='long_horizon',
+                      dynamic_sequence_lengths=False,
+                      horizon=None,
                       seed=0):
+    assert experiment in EXPERIMENT_MODES.keys()
+
     if cached:
         raw_sequences = []
         for i in EXPERIMENT_MODES[experiment]:
@@ -210,18 +213,20 @@ def get_raw_sequences(n_train=2000, n_test=500,
 
         for i in EXPERIMENT_MODES[experiment]:
             X_train, Y_train, sequence_lengths_train = \
-                generate_autoregressive_forecast_dataset(
-                    n_samples=n_train,
-                    experiment=experiment,
-                    setting=i,
-                    random_state=random_state)
+                generate_autoregressive_forecast_dataset(n_samples=n_train,
+                                                         experiment=experiment,
+                                                         setting=i,
+                                                         dynamic_sequence_lengths=dynamic_sequence_lengths,
+                                                         horizon=horizon,
+                                                         random_state=random_state)
 
             X_test, Y_test, sequence_lengths_test = \
-                generate_autoregressive_forecast_dataset(
-                    n_samples=n_test,
-                    experiment=experiment,
-                    setting=i,
-                    random_state=random_state)
+                generate_autoregressive_forecast_dataset(n_samples=n_test,
+                                                         experiment=experiment,
+                                                         setting=i,
+                                                         dynamic_sequence_lengths=dynamic_sequence_lengths,
+                                                         horizon=horizon,
+                                                         random_state=random_state)
 
             with open('processed_data/synthetic-{}-{}-{}.pkl'.format(
                     experiment, i, seed),
