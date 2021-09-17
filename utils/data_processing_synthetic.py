@@ -138,7 +138,7 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
             + random_state.geometric(p=2 / params['length'], size=n_samples)
     else:
         sequence_lengths = np.array(
-            [params['lengths'] + params['horizon']] * n_samples)
+            [params['length'] + params['horizon']] * n_samples)
 
     # Noise profile-dependent settings
     if experiment == 'static':
