@@ -220,8 +220,7 @@ class CFRNN(torch.nn.Module):
 
         for sequences, targets, lengths in test_loader:
             point_prediction, _ = self(sequences)
-            batch_intervals, _ = self.predict(sequences, corrected=corrected,
-                                              normalised=normalised)
+            batch_intervals, _ = self.predict(sequences, corrected=corrected)
             point_predictions.append(point_prediction)
             errors.append(torch.nn.functional.l1_loss(point_prediction,
                                                       targets,
@@ -235,7 +234,7 @@ class CFRNN(torch.nn.Module):
 
 class CFRNN_normalised(CFRNN):
     def __init__(self, beta=1, **kwargs):
-        super(CFRNN, self).__init__()
+        super(CFRNN_normalised, self).__init__(**kwargs)
 
         # Normalisation network
         self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
@@ -323,7 +322,7 @@ class CFRNN_normalised(CFRNN):
         # Collect calibration scores
         self.calibrate(calibration_dataset)
 
-    def predict(self, x, state=None, corrected=True, normalised=False):
+    def predict(self, x, state=None, corrected=True):
         """Forecasts the time series with conformal uncertainty intervals."""
         out, hidden = self(x, state)
 
