@@ -41,8 +41,8 @@ class RNN(nn.Module):
                                   batch_first=True, )
                     }
 
-        self.mode = rnn_mode
-        self.rnn = rnn_dict[self.mode]
+        self.rnn_mode = rnn_mode
+        self.rnn = rnn_dict[self.rnn_mode]
 
         self.out = nn.Linear(self.HIDDEN_UNITS, self.OUTPUT_SIZE)
 
@@ -58,7 +58,7 @@ class RNN(nn.Module):
         # h_n shape (n_layers, batch, hidden_size)
         # h_c shape (n_layers, batch, hidden_size)
 
-        if self.mode == "LSTM":
+        if self.rnn_mode == "LSTM":
             # None represents zero initial hidden state
             r_out, (h_n, h_c) = self.rnn(x, None)
         else:
