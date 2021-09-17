@@ -30,7 +30,7 @@ DEFAULT_SYNTHETIC_TRAINING_PARAMETERS = {'input_size': 1,  # RNN parameters
                                          'batch_size': 100,
                                          'embedding_size': 20,
                                          'max_steps': 10,
-                                         'output_size': 5,
+                                         'horizon': 5,
                                          'coverage': 0.9,
                                          'lr': 0.01,
                                          'rnn_mode': 'LSTM'}
@@ -136,5 +136,14 @@ def run_synthetic_experiments(experiment, baseline,
                                                       baseline, seed),
                   'rb') as f:
             baseline_results = pickle.load(f)
+
+    return baseline_results
+
+
+def load_synthetic_results(experiment, baseline, seed=0):
+    with open('saved_results/{}-{}-{}.pkl'.format(experiment,
+                                                  baseline, seed),
+              'rb') as f:
+        baseline_results = pickle.load(f)
 
     return baseline_results
