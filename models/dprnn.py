@@ -30,7 +30,7 @@ class DPRNN(nn.Module):
         self.NUM_LAYERS = n_layers
         self.N_STEPS = n_steps
 
-        self.mode = rnn_mode
+        self.rnn_mode = rnn_mode
         self.dropout_prob = dropout_prob
         self.dropout = nn.Dropout(p=dropout_prob)
 
@@ -49,7 +49,7 @@ class DPRNN(nn.Module):
                                   dropout=self.dropout_prob, )
                     }
 
-        self.rnn = rnn_dict[self.mode]
+        self.rnn = rnn_dict[self.rnn_mode]
         self.out = nn.Linear(self.HIDDEN_UNITS, self.OUTPUT_SIZE)
 
     def forward(self, x):
@@ -58,7 +58,7 @@ class DPRNN(nn.Module):
         # h_n shape (n_layers, batch, hidden_size)
         # h_c shape (n_layers, batch, hidden_size)
 
-        if self.mode == "LSTM":
+        if self.rnn_mode == "LSTM":
             r_out, (h_n, h_c) = self.rnn(x, None)  # None represents zero
             # initial hidden state
 

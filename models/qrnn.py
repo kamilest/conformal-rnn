@@ -29,7 +29,7 @@ class QRNN(nn.Module):
         self.NUM_LAYERS = n_layers
         self.N_STEPS = n_steps
         self.q = alpha
-        self.mode = rnn_mode
+        self.rnn_mode = rnn_mode
 
         rnn_dict = {"RNN": nn.RNN(input_size=self.INPUT_SIZE,
                                   hidden_size=self.HIDDEN_UNITS,
@@ -45,7 +45,7 @@ class QRNN(nn.Module):
                                   batch_first=True, )
                     }
 
-        self.rnn = rnn_dict[self.mode]
+        self.rnn = rnn_dict[self.rnn_mode]
         self.out = nn.Linear(self.HIDDEN_UNITS, 2 * self.OUTPUT_SIZE)
 
     def forward(self, x):
@@ -54,7 +54,7 @@ class QRNN(nn.Module):
         # h_n shape (n_layers, batch, hidden_size)
         # h_c shape (n_layers, batch, hidden_size)
 
-        if self.mode == "LSTM":
+        if self.rnn_mode == "LSTM":
             r_out, (h_n, h_c) = self.rnn(x, None)  # None represents zero
             # initial hidden state
         else:
