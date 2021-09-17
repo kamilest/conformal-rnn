@@ -210,8 +210,7 @@ class CFRNN(torch.nn.Module):
 
         return independent_coverages, joint_coverages, intervals
 
-    def get_point_predictions_and_errors(self, test_dataset, corrected=True,
-                                         normalised=False):
+    def get_point_predictions_and_errors(self, test_dataset, corrected=True):
         self.eval()
 
         point_predictions = []
