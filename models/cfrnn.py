@@ -117,7 +117,8 @@ class CFRNN(torch.nn.Module):
                 print(
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
-    def nonconformity(self, output, calibration_example):
+    @staticmethod
+    def nonconformity(output, calibration_example):
         """Measures the nonconformity between output and target time series."""
         # Average MAE loss for every step in the sequence.
         target = calibration_example[1]
