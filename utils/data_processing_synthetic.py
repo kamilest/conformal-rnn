@@ -145,7 +145,7 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
         noise_vars = [[0.1 * setting] * sl for sl in sequence_lengths]
 
     elif experiment == 'time_dependent':
-        noise_vars = [[0.1 * setting * (k / sl) for k in range(sl)]
+        noise_vars = [[0.1 * setting * k for k in range(sl)]
                       for sl in sequence_lengths]
     else:
         # No additional noise beyond the variance of X_gen
