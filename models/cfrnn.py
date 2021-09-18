@@ -80,7 +80,6 @@ class CFRNN(torch.nn.Module):
 
         return out, (h_n, c_n)
 
-    @staticmethod
     def get_lengths_mask(self, sequences, lengths):
         """Returns the lengths mask indicating the positions where every
         sequences in the batch are valid."""
