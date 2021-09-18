@@ -85,7 +85,10 @@ def run_synthetic_experiments(experiment, baseline,
                     embedding_size=params['embedding_size'],
                     horizon=params['horizon'],
                     error_rate=1 - params['coverage'],
-                    rnn_mode=params['rnn_mode'])
+                    rnn_mode=params['rnn_mode'],
+                    cfrnn_path='saved_models/{}-CFRNN-{}-{}-{}.pt'.format(
+                        experiment, rnn_mode,
+                        EXPERIMENT_MODES[experiment][i], seed))
                 model.fit(train_dataset, calibration_dataset,
                           epochs=params['epochs'], lr=params['lr'],
                           batch_size=params['batch_size'])
