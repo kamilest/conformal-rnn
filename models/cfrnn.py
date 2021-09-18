@@ -80,6 +80,7 @@ class CFRNN(torch.nn.Module):
 
         return out, (h_n, c_n)
 
+    @staticmethod
     def get_lengths_mask(self, sequences, lengths):
         """Returns the lengths mask indicating the positions where every
         sequences in the batch are valid."""
@@ -231,9 +232,11 @@ class CFRNN(torch.nn.Module):
         return point_predictions, errors
 
 
-class CFRNN_normalised(CFRNN):
-    def __init__(self, beta=1, **kwargs):
-        super(CFRNN_normalised, self).__init__(**kwargs)
+class CFRNN_normalised(torch.nn.Module):
+    def __init__(self, cfrnn_path, beta=1, **kwargs):
+        super(CFRNN_normalised, self).__init__()
+
+        self.cfrnn = torch.load(cfrnn_path)
 
         # Normalisation network
         self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
@@ -261,7 +264,6 @@ class CFRNN_normalised(CFRNN):
         return torch.exp(out) + self.beta
 
     def train_normaliser(self, train_loader):
-        # TODO tuning
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         criterion = torch.nn.MSELoss()
 
@@ -273,8 +275,8 @@ class CFRNN_normalised(CFRNN):
                 optimizer.zero_grad()
 
                 # Get the RNN multi-horizon forecast.
-                forecaster_out, _ = self(sequences)
-                lengths_mask = self.get_lengths_mask(sequences, lengths)
+                forecaster_out, _ = self.cfrnn(sequences)
+                lengths_mask = self.cfrnn.get_lengths_mask(sequences, lengths)
 
                 # Compute normalisation target ln|y - \hat{y}|.
                 normalisation_target = \
@@ -309,10 +311,6 @@ class CFRNN_normalised(CFRNN):
         train_loader = torch.utils.data.DataLoader(train_dataset,
                                                    batch_size=batch_size,
                                                    shuffle=True)
-
-        # Train the multi-horizon forecaster.
-        self.train_forecaster(train_loader, epochs, lr)
-
         # Train normalisation network.
         self.train_normaliser(train_loader)
         self.normalising_rnn.eval()
@@ -323,7 +321,7 @@ class CFRNN_normalised(CFRNN):
 
     def predict(self, x, state=None, corrected=True):
         """Forecasts the time series with conformal uncertainty intervals."""
-        out, hidden = self(x, state)
+        out, hidden = self.cfrnn(x, state)
 
         score = self.normalisation_score(x, len(x))
         if not corrected:
