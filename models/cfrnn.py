@@ -233,10 +233,14 @@ class CFRNN(torch.nn.Module):
 
 
 class CFRNN_normalised(torch.nn.Module):
-    def __init__(self, cfrnn_path, beta=1, **kwargs):
+    def __init__(self, cfrnn_path=None, beta=1, **kwargs):
         super(CFRNN_normalised, self).__init__()
 
-        self.cfrnn = torch.load(cfrnn_path)
+        self.cfrnn_path = cfrnn_path
+        if self.cfrnn_path:
+            self.cfrnn = torch.load(cfrnn_path)
+        else:
+            self.cfrnn = CFRNN(**kwargs)
 
         # Normalisation network
         self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
@@ -311,6 +315,14 @@ class CFRNN_normalised(torch.nn.Module):
         train_loader = torch.utils.data.DataLoader(train_dataset,
                                                    batch_size=batch_size,
                                                    shuffle=True)
+
+        if self.cfrnn_path is None:
+            self.cfrnn.fit(train_dataset=train_dataset,
+                           calibration_dataset=calibration_dataset,
+                           epochs=epochs,
+                           lr=lr,
+                           batch_size=batch_size)
+
         # Train normalisation network.
         self.train_normaliser(train_loader)
         self.normalising_rnn.eval()
