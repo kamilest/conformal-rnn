@@ -232,15 +232,26 @@ class CFRNN(torch.nn.Module):
         return point_predictions, errors
 
 
-class CFRNN_normalised(torch.nn.Module):
-    def __init__(self, cfrnn_path=None, beta=1, **kwargs):
-        super(CFRNN_normalised, self).__init__()
+class CFRNN_normalised(CFRNN):
+    def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
+                 error_rate=0.05, rnn_mode='LSTM', cfrnn_path=None, beta=1,
+                 **kwargs):
+        super(CFRNN_normalised, self).__init__(embedding_size, input_size,
+                                               output_size, horizon,
+                                               error_rate, rnn_mode, **kwargs)
+
+        self.input_size = input_size
+        self.embedding_size = embedding_size
+        self.horizon = horizon
+        self.output_size = output_size
+        self.alpha = error_rate
 
         self.cfrnn_path = cfrnn_path
         if self.cfrnn_path:
             self.cfrnn = torch.load(cfrnn_path)
         else:
-            self.cfrnn = CFRNN(**kwargs)
+            self.cfrnn = CFRNN(embedding_size, input_size, output_size, horizon,
+                               error_rate, rnn_mode, **kwargs)
 
         # Normalisation network
         self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
@@ -280,7 +291,7 @@ class CFRNN_normalised(torch.nn.Module):
 
                 # Get the RNN multi-horizon forecast.
                 forecaster_out, _ = self.cfrnn(sequences)
-                lengths_mask = self.cfrnn.get_lengths_mask(sequences, lengths)
+                lengths_mask = self.get_lengths_mask(sequences, lengths)
 
                 # Compute normalisation target ln|y - \hat{y}|.
                 normalisation_target = \
