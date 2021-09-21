@@ -80,6 +80,7 @@ class CFRNN(torch.nn.Module):
 
         return out, (h_n, c_n)
 
+    # TODO move out to external method
     def get_lengths_mask(self, sequences, lengths):
         """Returns the lengths mask indicating the positions where every
         sequences in the batch are valid."""
@@ -162,6 +163,7 @@ class CFRNN(torch.nn.Module):
 
     def fit(self, train_dataset, calibration_dataset, epochs, lr,
             batch_size=32, **kwargs):
+        # TODO for consistency move data loader into the training method
         train_loader = torch.utils.data.DataLoader(train_dataset,
                                                    batch_size=batch_size,
                                                    shuffle=True)
@@ -249,6 +251,8 @@ class CFRNN_normalised(torch.nn.Module):
         self.cfrnn_path = cfrnn_path
         if self.cfrnn_path:
             self.cfrnn = torch.load(cfrnn_path)
+            for param in self.cfrnn.parameters():
+                param.requires_grad = False
         else:
             self.cfrnn = CFRNN(embedding_size, input_size, output_size, horizon,
                                error_rate, rnn_mode, **kwargs)
