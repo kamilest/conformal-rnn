@@ -161,7 +161,7 @@ class CFRNN(torch.nn.Module):
             q=corrected_q)
 
     def fit(self, train_dataset, calibration_dataset, epochs, lr,
-            batch_size=32):
+            batch_size=32, **kwargs):
         train_loader = torch.utils.data.DataLoader(train_dataset,
                                                    batch_size=batch_size,
                                                    shuffle=True)
@@ -232,13 +232,13 @@ class CFRNN(torch.nn.Module):
         return point_predictions, errors
 
 
-class CFRNN_normalised(CFRNN):
+class CFRNN_normalised(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  error_rate=0.05, rnn_mode='LSTM', cfrnn_path=None, beta=1,
                  **kwargs):
-        super(CFRNN_normalised, self).__init__(embedding_size, input_size,
-                                               output_size, horizon,
-                                               error_rate, rnn_mode, **kwargs)
+        super(CFRNN_normalised, self).__init__()
+
+        self.rnn_mode = rnn_mode
 
         self.input_size = input_size
         self.embedding_size = embedding_size
@@ -321,7 +321,55 @@ class CFRNN_normalised(CFRNN):
         normalised_score = score / self.normalisation_score(sequence, length)
         return normalised_score
 
+    def get_lengths_mask(self, sequences, lengths):
+        """Returns the lengths mask indicating the positions where every
+        sequences in the batch are valid."""
+
+        lengths_mask = torch.zeros(sequences.size(0), self.horizon,
+                                   sequences.size(2))
+        for i, l in enumerate(lengths):
+            lengths_mask[i, :min(l, self.horizon), :] = 1
+
+        return lengths_mask
+
+    def calibrate(self, calibration_dataset):
+        """
+        Computes the nonconformity scores for the calibration dataset.
+        """
+        calibration_loader = torch.utils.data.DataLoader(calibration_dataset,
+                                                         batch_size=1)
+        n_calibration = len(calibration_dataset)
+        calibration_scores = []
+
+        with torch.set_grad_enabled(False):
+            self.eval()
+            for calibration_example in calibration_loader:
+                sequences, targets, lengths = calibration_example
+                out, _ = self.cfrnn(sequences)
+                score = self.nonconformity(out, calibration_example)
+                # n_batches: [batch_size, horizon, output_size]
+                calibration_scores.append(score)
+
+        # [output_size, horizon, n_samples]
+        self.calibration_scores = torch.vstack(calibration_scores).T
+
+        # [horizon, output_size]
+        q = min((n_calibration + 1.) * (1 - self.alpha) / n_calibration, 1)
+        corrected_q = min((n_calibration + 1.) * (
+                1 - self.alpha / self.horizon) / n_calibration, 1)
+
+        self.critical_calibration_scores = get_critical_scores(
+            calibration_scores=self.calibration_scores,
+            q=q)
+
+        # Bonferroni corrected calibration scores.
+        # [horizon, output_size]
+        self.corrected_critical_calibration_scores = get_critical_scores(
+            calibration_scores=self.calibration_scores,
+            q=corrected_q)
+
     def fit(self, train_dataset, calibration_dataset, epochs, lr,
+            normaliser_epochs=500,
             batch_size=32):
         train_loader = torch.utils.data.DataLoader(train_dataset,
                                                    batch_size=batch_size,
@@ -362,3 +410,46 @@ class CFRNN_normalised(CFRNN):
 
         # [batch_size, 2, horizon, n_outputs]
         return torch.stack((lower, upper), dim=1), hidden
+
+    def evaluate_coverage(self, test_dataset, corrected=True):
+        self.eval()
+
+        independent_coverages, joint_coverages, intervals = [], [], []
+        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
+
+        for sequences, targets, lengths in test_loader:
+            batch_intervals, _ = self.predict(sequences, corrected=corrected)
+            intervals.append(batch_intervals)
+            independent_coverage, joint_coverage = coverage(batch_intervals,
+                                                            targets)
+            independent_coverages.append(independent_coverage)
+            joint_coverages.append(joint_coverage)
+
+        # [n_samples, (1 | horizon), n_outputs] containing booleans
+        independent_coverages = torch.cat(independent_coverages)
+        joint_coverages = torch.cat(joint_coverages)
+
+        # [n_samples, 2, horizon, n_outputs] containing lower and upper bounds
+        intervals = torch.cat(intervals)
+
+        return independent_coverages, joint_coverages, intervals
+
+    def get_point_predictions_and_errors(self, test_dataset, corrected=True):
+        self.eval()
+
+        point_predictions = []
+        errors = []
+        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
+
+        for sequences, targets, lengths in test_loader:
+            point_prediction, _ = self.cfrnn(sequences)
+            batch_intervals, _ = self.predict(sequences, corrected=corrected)
+            point_predictions.append(point_prediction)
+            errors.append(torch.nn.functional.l1_loss(point_prediction,
+                                                      targets,
+                                                      reduction='none').squeeze())
+
+        point_predictions = torch.cat(point_predictions)
+        errors = torch.cat(errors)
+
+        return point_predictions, errors
