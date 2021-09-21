@@ -26,6 +26,7 @@ CONFORMAL_BASELINES = ['CFRNN', 'CFRNN_normalised']
 
 DEFAULT_SYNTHETIC_TRAINING_PARAMETERS = {'input_size': 1,  # RNN parameters
                                          'epochs': 10,
+                                         'normaliser_epochs': 500,
                                          'n_steps': 500,
                                          'batch_size': 100,
                                          'embedding_size': 20,
@@ -33,7 +34,8 @@ DEFAULT_SYNTHETIC_TRAINING_PARAMETERS = {'input_size': 1,  # RNN parameters
                                          'horizon': 5,
                                          'coverage': 0.9,
                                          'lr': 0.01,
-                                         'rnn_mode': 'LSTM'}
+                                         'rnn_mode': 'LSTM',
+                                         'beta': 100}
 
 
 def get_max_steps(train_dataset, test_dataset):
@@ -43,7 +45,7 @@ def get_max_steps(train_dataset, test_dataset):
 def run_synthetic_experiments(experiment, baseline,
                               retrain=False, params=None,
                               dynamic_sequence_lengths=False,
-                              horizon=None,
+                              horizon=None, beta=None,
                               cached_datasets=True, correct_conformal=True,
                               save_model=False, save_results=True,
                               rnn_mode=None, seed=0):
@@ -72,6 +74,9 @@ def run_synthetic_experiments(experiment, baseline,
             if rnn_mode is not None:
                 params['rnn_mode'] = rnn_mode
 
+            if beta is not None:
+                params['beta'] = beta
+
             params['output_size'] = \
                 horizon if horizon else DEFAULT_PARAMETERS['horizon']
 
@@ -88,10 +93,12 @@ def run_synthetic_experiments(experiment, baseline,
                     rnn_mode=params['rnn_mode'],
                     cfrnn_path='saved_models/{}-CFRNN-{}-{}-{}.pt'.format(
                         experiment, rnn_mode,
-                        EXPERIMENT_MODES[experiment][i], seed))
+                        EXPERIMENT_MODES[experiment][i], seed),
+                    beta=params['beta'])
                 model.fit(train_dataset, calibration_dataset,
                           epochs=params['epochs'], lr=params['lr'],
-                          batch_size=params['batch_size'])
+                          batch_size=params['batch_size'],
+                          normaliser_epochs=params['normaliser_epochs'])
 
                 result = evaluate_cfrnn_performance(model, test_dataset,
                                                     correct_conformal)
