@@ -278,12 +278,12 @@ class CFRNN_normalised(CFRNN):
         out = self.normaliser_forward(sequences)
         return torch.exp(out) + self.beta
 
-    def train_normaliser(self, train_loader):
+    def train_normaliser(self, train_loader, epochs):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         criterion = torch.nn.MSELoss()
 
         # TODO early stopping based on validation loss of the calibration set
-        for epoch in range(500):
+        for epoch in range(epochs):
             train_loss = 0.
 
             for sequences, targets, lengths in train_loader:
@@ -335,7 +335,7 @@ class CFRNN_normalised(CFRNN):
                            batch_size=batch_size)
 
         # Train normalisation network.
-        self.train_normaliser(train_loader)
+        self.train_normaliser(train_loader, normaliser_epochs)
         self.normalising_rnn.eval()
         self.normalising_out.eval()
 
