@@ -1,7 +1,6 @@
 import pickle
 
 import numpy as np
-import pandas as pd
 from matplotlib import pyplot as plt
 
 from utils.train_synthetic import load_synthetic_results
@@ -23,29 +22,25 @@ def get_joint_coverages(baseline, experiment):
 
 
 def get_interval_widths(baseline, experiment):
-    # TODO get interval width for and horizon (col) for an
-    #  experiment accounting for the dataset settings (row) ± over seeds and
-    #  return as dataframe
+    """ Returns interval widths (mean±std over seeds) across the horizon for
+    every dataset setting. """
 
-    wws = []  # array containing interval widths for horizon=5 for each seed
+    # seeds x settings x horizon
+    widths = []
     for seed in range(5):
-        ws = []
         results = load_synthetic_results(experiment=experiment,
                                          baseline=baseline, seed=seed)
-        for result in results:  # for each setting
-            # for the data setttings (increasing time-dependent noise)
-            widths = result['Mean confidence interval widths']  # [1xhorizon]
-            # averages across the horizon, elements of ws represent different experiment mode
-            ws.append(
-                '{:.2f} \\(\\pm\\) {:.2f}'.format(widths.mean(), widths.std()))
-        wws.append(ws)
+        dataset_widths = []  # settings x horizon
+        for result in results:
+            # [1 x horizon] for a single dataset setting
+            width = result['Mean confidence interval widths'].tolist()
+            dataset_widths.append(width)
+        widths.append(dataset_widths)
 
-    # rows denote increasing time-dependent noise configuration, columns denote seeds
-    for i in range(1):
-        #         print('{} & {} & {} & {} & {}'.format(wws[0][i], wws[1][i], wws[2][i], wws[3][i], wws[4][i]))
-        for j in range(5):
-            print(wws[j][i])
-    print()
+    widths = np.array(widths).transpose([1, 2, 0])
+    widths_mean = widths.mean(axis=-1)
+    widths_std = widths.std(axis=-1)
+    return widths_mean, widths_std
 
 
 def plot_timeseries(experiment, baseline, seed=0, index=None,
