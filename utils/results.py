@@ -7,10 +7,10 @@ from utils.train_synthetic import load_synthetic_results
 from utils.data_processing_synthetic import EXPERIMENT_MODES
 
 
-def get_joint_coverages(baseline, experiment):
+def get_joint_coverages(baseline, experiment, seeds=range(5)):
     """ Returns joint horizon coverages for each dataset setting. """
     coverages = []
-    for seed in range(5):
+    for seed in seeds:
         dataset_coverages = []
         results = load_synthetic_results(experiment=experiment,
                                          baseline=baseline, seed=seed)
@@ -22,13 +22,13 @@ def get_joint_coverages(baseline, experiment):
     return coverages.mean(axis=0), coverages.std(axis=0)
 
 
-def get_interval_widths(baseline, experiment):
+def get_interval_widths(baseline, experiment, seeds=range(5)):
     """ Returns interval widths (mean±std over seeds) across the horizon for
     every dataset setting. """
 
     # seeds x settings x horizon
     widths = []
-    for seed in range(5):
+    for seed in seeds:
         results = load_synthetic_results(experiment=experiment,
                                          baseline=baseline, seed=seed)
         dataset_widths = []  # settings x horizon
