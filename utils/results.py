@@ -8,29 +8,25 @@ from utils.train_synthetic import load_synthetic_results
 
 
 def get_joint_coverages(baseline, experiment):
-    """ Prints joint horizon coverages for each dataset setting. """
+    """ Returns joint horizon coverages for each dataset setting. """
     coverages = []
     for seed in range(5):
         dataset_coverages = []
         results = load_synthetic_results(experiment=experiment,
                                          baseline=baseline, seed=seed)
-        for result in results:  # for each setting
+        for result in results:
             dataset_coverages.append(
                 result['Mean joint coverage'] * 100)
         coverages.append(dataset_coverages)
     coverages = np.array(coverages)
-    for m, s in zip(coverages.mean(axis=0), coverages.std(axis=0)):
-        print('{:.1f} \\(\\pm\\) {:.1f}\\%'.format(m, s))
-    return coverages
+    return zip(coverages.mean(axis=0), coverages.std(axis=0))
 
 
 def get_interval_widths(baseline, experiment):
     # TODO get interval width for and horizon (col) for an
     #  experiment accounting for the dataset settings (row) ± over seeds and
     #  return as dataframe
-    pass
 
-    print(baseline)
     wws = []  # array containing interval widths for horizon=5 for each seed
     for seed in range(5):
         ws = []
