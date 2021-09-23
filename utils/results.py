@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from utils.train_synthetic import load_synthetic_results
+from data_processing_synthetic import EXPERIMENT_MODES
 
 
 def get_joint_coverages(baseline, experiment):
@@ -45,7 +46,9 @@ def get_interval_widths(baseline, experiment):
 
 def plot_timeseries(experiment, baseline, seed=0, index=None,
                     forecast_only=False, figsize=(28, 4), figure_name=None):
-    # TODO cleanup
+
+    assert experiment in EXPERIMENT_MODES.keys()
+
     plt.rcParams.update({
         "text.usetex": False,
         "font.family": "sans-serif",
@@ -54,7 +57,7 @@ def plot_timeseries(experiment, baseline, seed=0, index=None,
                          'axes.labelsize': 13})
 
     datasets = []
-    for i in ([2, 10] if experiment == 'periodic' else range(1, 6)):
+    for i in EXPERIMENT_MODES[experiment]:
         with open('processed_data/synthetic-{}-{}-{}.pkl'.format(experiment, i,
                                                                  seed),
                   'rb') as f:
