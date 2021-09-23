@@ -1,26 +1,27 @@
 import pickle
 
+import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
 
 from utils.train_synthetic import load_synthetic_results
 
 
-def get_joint_coverage(baseline, experiment):
-    # TODO get the dataframe of coverage for seed (row) and horizon (col)
-    # print(baseline)
+def get_joint_coverages(baseline, experiment):
+    """ Prints joint horizon coverages for each dataset setting. """
     coverages = []
     for seed in range(5):
-        dataset_setting_coverages = []
+        dataset_coverages = []
         results = load_synthetic_results(experiment=experiment,
                                          baseline=baseline, seed=seed)
         for result in results:  # for each setting
-            dataset_setting_coverages.append(
+            dataset_coverages.append(
                 result['Mean joint coverage'] * 100)
-        coverages.append(dataset_setting_coverages)
+        coverages.append(dataset_coverages)
     coverages = np.array(coverages)
     for m, s in zip(coverages.mean(axis=0), coverages.std(axis=0)):
         print('{:.1f} \\(\\pm\\) {:.1f}\\%'.format(m, s))
-    print()
+    return coverages
 
 
 def get_interval_widths(baseline, experiment):
