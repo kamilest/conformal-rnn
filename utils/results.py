@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from utils.train_synthetic import load_synthetic_results
-from data_processing_synthetic import EXPERIMENT_MODES
+from utils.data_processing_synthetic import EXPERIMENT_MODES
 
 
 def get_joint_coverages(baseline, experiment):
@@ -19,7 +19,7 @@ def get_joint_coverages(baseline, experiment):
                 result['Mean joint coverage'] * 100)
         coverages.append(dataset_coverages)
     coverages = np.array(coverages)
-    return zip(coverages.mean(axis=0), coverages.std(axis=0))
+    return coverages.mean(axis=0), coverages.std(axis=0)
 
 
 def get_interval_widths(baseline, experiment):
@@ -38,10 +38,8 @@ def get_interval_widths(baseline, experiment):
             dataset_widths.append(width)
         widths.append(dataset_widths)
 
-    widths = np.array(widths).transpose([1, 2, 0])
-    widths_mean = widths.mean(axis=-1)
-    widths_std = widths.std(axis=-1)
-    return widths_mean, widths_std
+    widths = np.array(widths)
+    return widths.mean(axis=0), widths.std(axis=0)
 
 
 def plot_timeseries(experiment, baseline, seed=0, index=None,
@@ -131,8 +129,16 @@ def plot_timeseries(experiment, baseline, seed=0, index=None,
         plt.savefig('{}.png'.format(figure_name), bbox_inches='tight')
     plt.show()
 
-# TODO compute valid horizons
+# Independent coverage
+# for baseline in ['CFRNN_normalised']:
+#     print(baseline)
+#     for seed in range(1):
+#         results = load_synthetic_results(experiment='time_dependent', baseline=baseline, seed=seed)
+#         for result in results: # for each setting
+#             independent_coverages = result['Mean independent coverage']
+#             print(independent_coverages)
+#             print('[{:.1f}\\%, {:.1f}\\%]'.format(independent_coverages.min() * 100, independent_coverages.max() * 100))
+#     print()
 
-# TODO compute interval widths vs coverage
 
 # TODO demonstrate sample complexity
