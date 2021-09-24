@@ -35,7 +35,7 @@ DEFAULT_SYNTHETIC_TRAINING_PARAMETERS = {'input_size': 1,  # RNN parameters
                                          'coverage': 0.9,
                                          'lr': 0.01,
                                          'rnn_mode': 'LSTM',
-                                         'beta': 100}
+                                         'beta': 1}
 
 
 def get_max_steps(train_dataset, test_dataset):
