@@ -30,6 +30,18 @@ def get_critical_scores(calibration_scores, q):
         for feature_calibration_scores in calibration_scores]).T
 
 
+def get_lengths_mask(sequences, lengths, horizon):
+    """Returns the lengths mask indicating the positions where every
+    sequences in the batch are valid."""
+
+    lengths_mask = torch.zeros(sequences.size(0), horizon,
+                               sequences.size(2))
+    for i, l in enumerate(lengths):
+        lengths_mask[i, :min(l, horizon), :] = 1
+
+    return lengths_mask
+
+
 class CFRNN(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  error_rate=0.05, rnn_mode='LSTM', **kwargs):
@@ -80,18 +92,6 @@ class CFRNN(torch.nn.Module):
 
         return out, (h_n, c_n)
 
-    # TODO move out to external method
-    def get_lengths_mask(self, sequences, lengths):
-        """Returns the lengths mask indicating the positions where every
-        sequences in the batch are valid."""
-
-        lengths_mask = torch.zeros(sequences.size(0), self.horizon,
-                                   sequences.size(2))
-        for i, l in enumerate(lengths):
-            lengths_mask[i, :min(l, self.horizon), :] = 1
-
-        return lengths_mask
-
     def train_forecaster(self, train_loader, epochs, lr):
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         criterion = torch.nn.MSELoss()
@@ -104,7 +104,8 @@ class CFRNN(torch.nn.Module):
                 optimizer.zero_grad()
 
                 out, _ = self(sequences)
-                valid_out = out * self.get_lengths_mask(sequences, lengths)
+                valid_out = out * get_lengths_mask(sequences, lengths,
+                                                   self.horizon)
 
                 loss = criterion(valid_out.float(), targets.float())
                 loss.backward()
@@ -295,7 +296,8 @@ class CFRNN_normalised(torch.nn.Module):
 
                 # Get the RNN multi-horizon forecast.
                 forecaster_out, _ = self.cfrnn(sequences)
-                lengths_mask = self.get_lengths_mask(sequences, lengths)
+                lengths_mask = get_lengths_mask(sequences, lengths,
+                                                self.horizon)
 
                 # Compute normalisation target ln|y - \hat{y}|.
                 normalisation_target = \
@@ -324,17 +326,6 @@ class CFRNN_normalised(torch.nn.Module):
         score = torch.nn.functional.l1_loss(output, target, reduction='none')
         normalised_score = score / self.normalisation_score(sequence, length)
         return normalised_score
-
-    def get_lengths_mask(self, sequences, lengths):
-        """Returns the lengths mask indicating the positions where every
-        sequences in the batch are valid."""
-
-        lengths_mask = torch.zeros(sequences.size(0), self.horizon,
-                                   sequences.size(2))
-        for i, l in enumerate(lengths):
-            lengths_mask[i, :min(l, self.horizon), :] = 1
-
-        return lengths_mask
 
     def calibrate(self, calibration_dataset):
         """
