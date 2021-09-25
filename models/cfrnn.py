@@ -257,12 +257,12 @@ class CFRNN:
         return point_predictions, errors
 
 
-class CFRNN_normalised(CFRNN, torch.nn.Module):
+class AdaptiveCFRNN(CFRNN, torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  error_rate=0.05, rnn_mode='LSTM', auxiliary_forecaster_path=None, beta=1):
-        super(CFRNN_normalised, self).__init__(embedding_size, input_size, output_size, horizon,
-                                               error_rate, rnn_mode,
-                                               auxiliary_forecaster_path)
+        super(AdaptiveCFRNN, self).__init__(embedding_size, input_size, output_size, horizon,
+                                            error_rate, rnn_mode,
+                                            auxiliary_forecaster_path)
 
         # Normalisation network
         self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
