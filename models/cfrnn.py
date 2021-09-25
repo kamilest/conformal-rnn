@@ -126,6 +126,9 @@ class CFRNN:
         super(CFRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
+        self.input_size = input_size
+        self.output_size = output_size
+        self.embedding_size = embedding_size
 
         self.auxiliary_forecaster_path = auxiliary_forecaster_path
         if self.auxiliary_forecaster_path:
@@ -254,28 +257,12 @@ class CFRNN:
         return point_predictions, errors
 
 
-class CFRNN_normalised(torch.nn.Module):
+class CFRNN_normalised(CFRNN, torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
-                 error_rate=0.05, rnn_mode='LSTM', cfrnn_path=None, beta=1,
-                 **kwargs):
-        super(CFRNN_normalised, self).__init__()
-
-        self.rnn_mode = rnn_mode
-
-        self.input_size = input_size
-        self.embedding_size = embedding_size
-        self.horizon = horizon
-        self.output_size = output_size
-        self.alpha = error_rate
-
-        self.cfrnn_path = cfrnn_path
-        if self.cfrnn_path:
-            self.cfrnn = torch.load(cfrnn_path)
-            for param in self.cfrnn.parameters():
-                param.requires_grad = False
-        else:
-            self.cfrnn = CFRNN(embedding_size, input_size, output_size, horizon,
-                               error_rate, rnn_mode, **kwargs)
+                 error_rate=0.05, rnn_mode='LSTM', auxiliary_forecaster_path=None, beta=1):
+        super(CFRNN_normalised, self).__init__(embedding_size, input_size, output_size, horizon,
+                                               error_rate, rnn_mode,
+                                               auxiliary_forecaster_path)
 
         # Normalisation network
         self.normalising_rnn = torch.nn.RNN(input_size=self.input_size,
@@ -286,10 +273,6 @@ class CFRNN_normalised(torch.nn.Module):
                                                self.horizon * self.output_size)
 
         self.beta = beta
-
-        self.normalised_calibration_scores = None
-        self.normalised_critical_calibration_scores = None
-        self.normalised_corrected_critical_calibration_scores = None
 
     def normaliser_forward(self, sequences):
         """Returns an estimate of normalisation target ln|y - hat{y}|."""
@@ -302,7 +285,11 @@ class CFRNN_normalised(torch.nn.Module):
         out = self.normaliser_forward(sequences)
         return torch.exp(out) + self.beta
 
-    def train_normaliser(self, train_loader, epochs):
+    def train_normaliser(self, train_dataset, batch_size, epochs):
+        train_loader = torch.utils.data.DataLoader(train_dataset,
+                                                  batch_size=batch_size,
+                                                  shuffle=True)
+
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         criterion = torch.nn.MSELoss()
 
@@ -314,7 +301,7 @@ class CFRNN_normalised(torch.nn.Module):
                 optimizer.zero_grad()
 
                 # Get the RNN multi-horizon forecast.
-                forecaster_out, _ = self.cfrnn(sequences)
+                forecaster_out, _ = self.auxiliary_forecaster(sequences)
                 lengths_mask = get_lengths_mask(sequences, lengths,
                                                 self.horizon)
 
@@ -325,12 +312,10 @@ class CFRNN_normalised(torch.nn.Module):
 
                 # Normalising network estimates the normalisation target.
                 out = self.normaliser_forward(sequences)
-
                 loss = criterion(out.float(), normalisation_target.float())
                 loss.backward()
 
                 train_loss += loss.item()
-
                 optimizer.step()
 
             mean_train_loss = train_loss / len(train_loader)
@@ -346,58 +331,15 @@ class CFRNN_normalised(torch.nn.Module):
         normalised_score = score / self.normalisation_score(sequence, length)
         return normalised_score
 
-    def calibrate(self, calibration_dataset):
-        """
-        Computes the nonconformity scores for the calibration dataset.
-        """
-        calibration_loader = torch.utils.data.DataLoader(calibration_dataset,
-                                                         batch_size=1)
-        n_calibration = len(calibration_dataset)
-        calibration_scores = []
-
-        with torch.set_grad_enabled(False):
-            self.eval()
-            for calibration_example in calibration_loader:
-                sequences, targets, lengths = calibration_example
-                out, _ = self.cfrnn(sequences)
-                score = self.nonconformity(out, calibration_example)
-                # n_batches: [batch_size, horizon, output_size]
-                calibration_scores.append(score)
-
-        # [output_size, horizon, n_samples]
-        self.calibration_scores = torch.vstack(calibration_scores).T
-
-        # [horizon, output_size]
-        q = min((n_calibration + 1.) * (1 - self.alpha) / n_calibration, 1)
-        corrected_q = min((n_calibration + 1.) * (
-                1 - self.alpha / self.horizon) / n_calibration, 1)
-
-        self.critical_calibration_scores = get_critical_scores(
-            calibration_scores=self.calibration_scores,
-            q=q)
-
-        # Bonferroni corrected calibration scores.
-        # [horizon, output_size]
-        self.corrected_critical_calibration_scores = get_critical_scores(
-            calibration_scores=self.calibration_scores,
-            q=corrected_q)
-
     def fit(self, train_dataset, calibration_dataset, epochs, lr,
             normaliser_epochs=500,
             batch_size=32):
-        train_loader = torch.utils.data.DataLoader(train_dataset,
-                                                   batch_size=batch_size,
-                                                   shuffle=True)
-
-        if self.cfrnn_path is None:
-            self.cfrnn.fit(train_dataset=train_dataset,
-                           calibration_dataset=calibration_dataset,
-                           epochs=epochs,
-                           lr=lr,
-                           batch_size=batch_size)
+        if self.auxiliary_forecaster_path is None:
+            # Train the multi-horizon forecaster.
+            self.auxiliary_forecaster.fit(train_dataset, batch_size, epochs, lr)
 
         # Train normalisation network.
-        self.train_normaliser(train_loader, normaliser_epochs)
+        self.train_normaliser(train_dataset, normaliser_epochs)
         self.normalising_rnn.eval()
         self.normalising_out.eval()
 
@@ -406,7 +348,7 @@ class CFRNN_normalised(torch.nn.Module):
 
     def predict(self, x, state=None, corrected=True):
         """Forecasts the time series with conformal uncertainty intervals."""
-        out, hidden = self.cfrnn(x, state)
+        out, hidden = self.auxiliary_forecaster(x, state)
 
         score = self.normalisation_score(x, len(x))
         if not corrected:
@@ -425,45 +367,4 @@ class CFRNN_normalised(torch.nn.Module):
         # [batch_size, 2, horizon, n_outputs]
         return torch.stack((lower, upper), dim=1), hidden
 
-    def evaluate_coverage(self, test_dataset, corrected=True):
-        self.eval()
 
-        independent_coverages, joint_coverages, intervals = [], [], []
-        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
-
-        for sequences, targets, lengths in test_loader:
-            batch_intervals, _ = self.predict(sequences, corrected=corrected)
-            intervals.append(batch_intervals)
-            independent_coverage, joint_coverage = coverage(batch_intervals,
-                                                            targets)
-            independent_coverages.append(independent_coverage)
-            joint_coverages.append(joint_coverage)
-
-        # [n_samples, (1 | horizon), n_outputs] containing booleans
-        independent_coverages = torch.cat(independent_coverages)
-        joint_coverages = torch.cat(joint_coverages)
-
-        # [n_samples, 2, horizon, n_outputs] containing lower and upper bounds
-        intervals = torch.cat(intervals)
-
-        return independent_coverages, joint_coverages, intervals
-
-    def get_point_predictions_and_errors(self, test_dataset, corrected=True):
-        self.eval()
-
-        point_predictions = []
-        errors = []
-        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
-
-        for sequences, targets, lengths in test_loader:
-            point_prediction, _ = self.cfrnn(sequences)
-            batch_intervals, _ = self.predict(sequences, corrected=corrected)
-            point_predictions.append(point_prediction)
-            errors.append(torch.nn.functional.l1_loss(point_prediction,
-                                                      targets,
-                                                      reduction='none').squeeze())
-
-        point_predictions = torch.cat(point_predictions)
-        errors = torch.cat(errors)
-
-        return point_predictions, errors
