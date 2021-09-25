@@ -7,7 +7,7 @@ import pickle
 import torch
 
 from models.bjrnn import RNN_uncertainty_wrapper
-from models.cfrnn import CFRNN, CFRNN_normalised
+from models.cfrnn import CFRNN, AdaptiveCFRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from models.rnn import RNN
@@ -17,7 +17,7 @@ from utils.data_processing_synthetic import \
 from utils.performance import evaluate_performance, evaluate_cfrnn_performance
 
 BASELINES = {'CFRNN': CFRNN,
-             'CFRNN_normalised': CFRNN_normalised,
+             'CFRNN_normalised': AdaptiveCFRNN,
              'BJRNN': None,
              'DPRNN': DPRNN,
              'QRNN': QRNN}
