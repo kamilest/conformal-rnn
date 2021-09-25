@@ -259,8 +259,10 @@ class CFRNN:
 
 class AdaptiveCFRNN(CFRNN, torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
-                 error_rate=0.05, rnn_mode='LSTM', auxiliary_forecaster_path=None, beta=1):
-        super(AdaptiveCFRNN, self).__init__(embedding_size, input_size, output_size, horizon,
+                 error_rate=0.05, rnn_mode='LSTM',
+                 auxiliary_forecaster_path=None, beta=1):
+        super(AdaptiveCFRNN, self).__init__(embedding_size, input_size,
+                                            output_size, horizon,
                                             error_rate, rnn_mode,
                                             auxiliary_forecaster_path)
 
@@ -274,21 +276,21 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
 
         self.beta = beta
 
-    def normaliser_forward(self, sequences):
+    def forward(self, sequences):
         """Returns an estimate of normalisation target ln|y - hat{y}|."""
         _, h_n = self.normalising_rnn(sequences.float())
         out = self.normalising_out(h_n).reshape(-1, self.horizon,
                                                 self.output_size)
         return out
 
-    def normalisation_score(self, sequences, lengths):
-        out = self.normaliser_forward(sequences)
+    def score(self, sequences, lengths):
+        out = self.forward(sequences)
         return torch.exp(out) + self.beta
 
     def train_normaliser(self, train_dataset, batch_size, epochs):
         train_loader = torch.utils.data.DataLoader(train_dataset,
-                                                  batch_size=batch_size,
-                                                  shuffle=True)
+                                                   batch_size=batch_size,
+                                                   shuffle=True)
 
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         criterion = torch.nn.MSELoss()
@@ -311,7 +313,7 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
                     lengths_mask
 
                 # Normalising network estimates the normalisation target.
-                out = self.normaliser_forward(sequences)
+                out = self.forward(sequences)
                 loss = criterion(out.float(), normalisation_target.float())
                 loss.backward()
 
@@ -328,7 +330,7 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
         """Measures the nonconformity between output and target time series."""
         sequence, target, length = calibration_example
         score = torch.nn.functional.l1_loss(output, target, reduction='none')
-        normalised_score = score / self.normalisation_score(sequence, length)
+        normalised_score = score / self.score(sequence, length)
         return normalised_score
 
     def fit(self, train_dataset, calibration_dataset, epochs, lr,
@@ -339,7 +341,7 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
             self.auxiliary_forecaster.fit(train_dataset, batch_size, epochs, lr)
 
         # Train normalisation network.
-        self.train_normaliser(train_dataset, normaliser_epochs)
+        self.train_normaliser(train_dataset, batch_size, normaliser_epochs)
         self.normalising_rnn.eval()
         self.normalising_out.eval()
 
@@ -350,7 +352,7 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
         """Forecasts the time series with conformal uncertainty intervals."""
         out, hidden = self.auxiliary_forecaster(x, state)
 
-        score = self.normalisation_score(x, len(x))
+        score = self.score(x, len(x))
         if not corrected:
             # [batch_size, horizon, n_outputs]
             # TODO make sure len(x) is correct
@@ -366,5 +368,3 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
 
         # [batch_size, 2, horizon, n_outputs]
         return torch.stack((lower, upper), dim=1), hidden
-
-
