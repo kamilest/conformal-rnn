@@ -40,17 +40,16 @@ def get_lengths_mask(sequences, lengths, horizon):
     return lengths_mask
 
 
-class CFRNN(torch.nn.Module):
+class AuxiliaryForecaster(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
-                 error_rate=0.05, rnn_mode='LSTM', **kwargs):
-        super(CFRNN, self).__init__()
+                 rnn_mode='LSTM'):
+        super(AuxiliaryForecaster, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
         self.input_size = input_size
         self.embedding_size = embedding_size
         self.horizon = horizon
         self.output_size = output_size
-        self.alpha = error_rate
 
         self.rnn_mode = rnn_mode
         if self.rnn_mode == 'RNN':
@@ -67,10 +66,6 @@ class CFRNN(torch.nn.Module):
                                                 batch_first=True)
         self.forecaster_out = torch.nn.Linear(embedding_size,
                                               horizon * output_size)
-
-        self.calibration_scores = None
-        self.critical_calibration_scores = None
-        self.corrected_critical_calibration_scores = None
 
     def forward(self, x, state=None):
         if state is not None:
@@ -90,7 +85,11 @@ class CFRNN(torch.nn.Module):
 
         return out, (h_n, c_n)
 
-    def train_forecaster(self, train_loader, epochs, lr):
+    def fit(self, train_dataset, batch_size, epochs, lr):
+        train_loader = torch.utils.data.DataLoader(train_dataset,
+                                                   batch_size=batch_size,
+                                                   shuffle=True)
+
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         criterion = torch.nn.MSELoss()
 
@@ -117,8 +116,34 @@ class CFRNN(torch.nn.Module):
                 print(
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
-    @staticmethod
-    def nonconformity(output, calibration_example):
+            # TODO save auxiliary forecaster to path
+
+
+class CFRNN:
+    def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
+                 error_rate=0.05, rnn_mode='LSTM',
+                 auxiliary_forecaster_path=None, **kwargs):
+        super(CFRNN, self).__init__()
+        # input_size indicates the number of features in the time series
+        # input_size=1 for univariate series.
+
+        self.auxiliary_forecaster_path = auxiliary_forecaster_path
+        if self.auxiliary_forecaster_path:
+            self.auxiliary_forecaster = torch.load(auxiliary_forecaster_path)
+            for param in self.auxiliary_forecaster.parameters():
+                param.requires_grad = False
+        else:
+            self.auxiliary_forecaster = AuxiliaryForecaster(embedding_size,
+                                                            input_size,
+                                                            output_size,
+                                                            horizon, rnn_mode)
+        self.horizon = horizon
+        self.alpha = error_rate
+        self.calibration_scores = None
+        self.critical_calibration_scores = None
+        self.corrected_critical_calibration_scores = None
+
+    def nonconformity(self, output, calibration_example):
         """Measures the nonconformity between output and target time series."""
         # Average MAE loss for every step in the sequence.
         target = calibration_example[1]
@@ -134,10 +159,10 @@ class CFRNN(torch.nn.Module):
         calibration_scores = []
 
         with torch.set_grad_enabled(False):
-            self.eval()
+            self.auxiliary_forecaster.eval()
             for calibration_example in calibration_loader:
                 sequences, targets, lengths = calibration_example
-                out, _ = self(sequences)
+                out, _ = self.auxiliary_forecaster(sequences)
                 score = self.nonconformity(out, calibration_example)
                 # n_batches: [batch_size, horizon, output_size]
                 calibration_scores.append(score)
@@ -162,20 +187,16 @@ class CFRNN(torch.nn.Module):
 
     def fit(self, train_dataset, calibration_dataset, epochs, lr,
             batch_size=32, **kwargs):
-        # TODO for consistency move data loader into the training method
-        train_loader = torch.utils.data.DataLoader(train_dataset,
-                                                   batch_size=batch_size,
-                                                   shuffle=True)
-
-        # Train the multi-horizon forecaster.
-        self.train_forecaster(train_loader, epochs, lr)
+        if self.auxiliary_forecaster_path is None:
+            # Train the multi-horizon forecaster.
+            self.auxiliary_forecaster.fit(train_dataset, batch_size, epochs, lr)
 
         # Collect calibration scores
         self.calibrate(calibration_dataset)
 
     def predict(self, x, state=None, corrected=True):
         """Forecasts the time series with conformal uncertainty intervals."""
-        out, hidden = self(x, state)
+        out, hidden = self.auxiliary_forecaster(x, state)
 
         if not corrected:
             # [batch_size, horizon, n_outputs]
@@ -190,7 +211,7 @@ class CFRNN(torch.nn.Module):
         return torch.stack((lower, upper), dim=1), hidden
 
     def evaluate_coverage(self, test_dataset, corrected=True):
-        self.eval()
+        self.auxiliary_forecaster.eval()
 
         independent_coverages, joint_coverages, intervals = [], [], []
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
@@ -213,14 +234,14 @@ class CFRNN(torch.nn.Module):
         return independent_coverages, joint_coverages, intervals
 
     def get_point_predictions_and_errors(self, test_dataset, corrected=True):
-        self.eval()
+        self.auxiliary_forecaster.eval()
 
         point_predictions = []
         errors = []
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
 
         for sequences, targets, lengths in test_loader:
-            point_prediction, _ = self(sequences)
+            point_prediction, _ = self.auxiliary_forecaster(sequences)
             batch_intervals, _ = self.predict(sequences, corrected=corrected)
             point_predictions.append(point_prediction)
             errors.append(torch.nn.functional.l1_loss(point_prediction,
