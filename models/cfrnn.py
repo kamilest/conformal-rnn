@@ -5,8 +5,8 @@ import torch
 
 
 def coverage(intervals, target):
-    """ Determines whether intervals coverage the target prediction.
-
+    """
+    Determines whether intervals cover the target prediction.
     Depending on the coverage_mode (either 'joint' or 'independent), will return
     either a list of whether each target or all targets satisfy the coverage.
 
@@ -14,10 +14,8 @@ def coverage(intervals, target):
     """
 
     lower, upper = intervals[:, 0], intervals[:, 1]
-
     # [batch, horizon, n_outputs]
     horizon_coverages = torch.logical_and(target >= lower, target <= upper)
-
     # [batch, horizon, n_outputs], [batch, n_outputs]
     return horizon_coverages, torch.all(horizon_coverages, dim=1)
 
