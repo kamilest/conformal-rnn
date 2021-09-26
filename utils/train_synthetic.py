@@ -17,12 +17,12 @@ from utils.data_processing_synthetic import \
 from utils.performance import evaluate_performance, evaluate_cfrnn_performance
 
 BASELINES = {'CFRNN': CFRNN,
-             'CFRNN_normalised': AdaptiveCFRNN,
+             'AdaptiveCFRNN': AdaptiveCFRNN,
              'BJRNN': None,
              'DPRNN': DPRNN,
              'QRNN': QRNN}
 
-CONFORMAL_BASELINES = ['CFRNN', 'CFRNN_normalised']
+CONFORMAL_BASELINES = ['CFRNN', 'AdaptiveCFRNN']
 
 DEFAULT_SYNTHETIC_TRAINING_PARAMETERS = {'input_size': 1,  # RNN parameters
                                          'epochs': 10,
