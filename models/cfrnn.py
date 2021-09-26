@@ -1,6 +1,8 @@
 # Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors
 # Licensed under the BSD 3-clause license
 
+import os.path
+
 import torch
 
 
@@ -42,7 +44,7 @@ def get_lengths_mask(sequences, lengths, horizon):
 
 class AuxiliaryForecaster(torch.nn.Module):
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
-                 rnn_mode='LSTM'):
+                 rnn_mode='LSTM', path=None):
         super(AuxiliaryForecaster, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
@@ -50,6 +52,7 @@ class AuxiliaryForecaster(torch.nn.Module):
         self.embedding_size = embedding_size
         self.horizon = horizon
         self.output_size = output_size
+        self.path = path
 
         self.rnn_mode = rnn_mode
         if self.rnn_mode == 'RNN':
@@ -116,7 +119,8 @@ class AuxiliaryForecaster(torch.nn.Module):
                 print(
                     'Epoch: {}\tTrain loss: {}'.format(epoch, mean_train_loss))
 
-            # TODO save auxiliary forecaster to path
+        if self.path is not None:
+            torch.save(self, self.path)
 
 
 class CFRNN:
@@ -131,7 +135,8 @@ class CFRNN:
         self.embedding_size = embedding_size
 
         self.auxiliary_forecaster_path = auxiliary_forecaster_path
-        if self.auxiliary_forecaster_path:
+        if self.auxiliary_forecaster_path and os.path.isfile(
+                self.auxiliary_forecaster_path):
             self.auxiliary_forecaster = torch.load(auxiliary_forecaster_path)
             for param in self.auxiliary_forecaster.parameters():
                 param.requires_grad = False
@@ -139,7 +144,8 @@ class CFRNN:
             self.auxiliary_forecaster = AuxiliaryForecaster(embedding_size,
                                                             input_size,
                                                             output_size,
-                                                            horizon, rnn_mode)
+                                                            horizon, rnn_mode,
+                                                            auxiliary_forecaster_path)
         self.horizon = horizon
         self.alpha = error_rate
         self.calibration_scores = None

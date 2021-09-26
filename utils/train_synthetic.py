@@ -91,9 +91,10 @@ def run_synthetic_experiments(experiment, baseline,
                     horizon=params['horizon'],
                     error_rate=1 - params['coverage'],
                     rnn_mode=params['rnn_mode'],
-                    cfrnn_path='saved_models/{}-CFRNN-{}-{}-{}.pt'.format(
-                        experiment, params['rnn_mode'],
-                        EXPERIMENT_MODES[experiment][i], seed),
+                    auxiliary_forecaster_path= \
+                        'saved_models/{}-aux-{}-{}-{}.pt'.format(
+                            experiment, params['rnn_mode'],
+                            EXPERIMENT_MODES[experiment][i], seed),
                     beta=params['beta'])
                 model.fit(train_dataset, calibration_dataset,
                           epochs=params['epochs'], lr=params['lr'],
@@ -128,9 +129,10 @@ def run_synthetic_experiments(experiment, baseline,
             baseline_results.append(result)
 
             if save_model:
-                torch.save(model, 'saved_models/{}-{}-{}-{}-{}.pt'.format(
-                    experiment, baseline, model.rnn_mode,
-                    EXPERIMENT_MODES[experiment][i], seed))
+                torch.save(model,
+                           'saved_models/{}-{}-{}-{}-{}.pt'.format(
+                               experiment, baseline, model.rnn_mode,
+                               EXPERIMENT_MODES[experiment][i], seed))
 
             del model
             gc.collect()
