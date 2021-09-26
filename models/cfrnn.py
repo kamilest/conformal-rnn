@@ -133,6 +133,8 @@ class CFRNN:
         self.input_size = input_size
         self.output_size = output_size
         self.embedding_size = embedding_size
+        self.rnn_mode = rnn_mode
+        self.requires_auxiliary_fit = True
 
         self.auxiliary_forecaster_path = auxiliary_forecaster_path
         if self.auxiliary_forecaster_path and os.path.isfile(
@@ -140,6 +142,7 @@ class CFRNN:
             self.auxiliary_forecaster = torch.load(auxiliary_forecaster_path)
             for param in self.auxiliary_forecaster.parameters():
                 param.requires_grad = False
+            self.requires_auxiliary_fit = False
         else:
             self.auxiliary_forecaster = AuxiliaryForecaster(embedding_size,
                                                             input_size,
@@ -196,7 +199,7 @@ class CFRNN:
 
     def fit(self, train_dataset, calibration_dataset, epochs, lr,
             batch_size=32, **kwargs):
-        if self.auxiliary_forecaster_path is None:
+        if self.requires_auxiliary_fit:
             # Train the multi-horizon forecaster.
             self.auxiliary_forecaster.fit(train_dataset, batch_size, epochs, lr)
 
