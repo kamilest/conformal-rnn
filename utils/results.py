@@ -1,14 +1,17 @@
 import pickle
 
 import numpy as np
+import seaborn as sns
 from matplotlib import pyplot as plt
 
 from utils.train_synthetic import load_synthetic_results
 from utils.data_processing_synthetic import EXPERIMENT_MODES
 
 
-def get_joint_coverages(baseline, experiment, seeds=range(5)):
+def get_joint_coverages(baseline, experiment, seeds=None):
     """ Returns joint horizon coverages for each dataset setting. """
+    if seeds is None:
+        seeds = list(range(5))
     coverages = []
     for seed in seeds:
         dataset_coverages = []
@@ -141,4 +144,17 @@ def plot_timeseries(experiment, baseline, seed=0, index=None,
 #     print()
 
 
-# TODO demonstrate sample complexity
+def plot_sample_complexity(seed=0, figure_name=None):
+    coverages_mean, coverages_std = {}, {}
+    for baseline in ['QRNN', 'DPRNN', 'CFRNN']:
+        # TODO error bars for seeds
+        coverages_mean[baseline], coverages_std[baseline] = \
+            get_joint_coverages(baseline, 'sample_complexity', seeds=[seed])
+
+    fig = sns.lineplot(data=coverages_mean)
+    fig.axhline(90, linestyle="--", color="black")
+    fig.set(xlabel="log(Training dataset size)", ylabel="Joint coverage, %")
+    plt.show()
+
+    if figure_name is not None:
+        plt.savefig('{}.png'.format(figure_name), bbox_inches='tight')
