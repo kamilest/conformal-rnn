@@ -11,7 +11,7 @@ from utils.data_padding import padd_arrays, unpadd_arrays
 
 
 class RNN(nn.Module):
-    def __init__(self, mode="RNN", epochs=5, batch_size=150, max_steps=50,
+    def __init__(self, rnn_mode="RNN", epochs=5, batch_size=150, max_steps=50,
                  input_size=30, lr=0.01, output_size=1, embedding_size=20,
                  n_layers=1, n_steps=50, **kwargs):
 
@@ -41,8 +41,8 @@ class RNN(nn.Module):
                                   batch_first=True, )
                     }
 
-        self.mode = mode
-        self.rnn = rnn_dict[self.mode]
+        self.rnn_mode = rnn_mode
+        self.rnn = rnn_dict[self.rnn_mode]
 
         self.out = nn.Linear(self.HIDDEN_UNITS, self.OUTPUT_SIZE)
 
@@ -58,7 +58,7 @@ class RNN(nn.Module):
         # h_n shape (n_layers, batch, hidden_size)
         # h_c shape (n_layers, batch, hidden_size)
 
-        if self.mode == "LSTM":
+        if self.rnn_mode == "LSTM":
             # None represents zero initial hidden state
             r_out, (h_n, h_c) = self.rnn(x, None)
         else:

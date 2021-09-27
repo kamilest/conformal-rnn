@@ -1,6 +1,6 @@
 # Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors, Ahmed M. Alaa
 # Licensed under the BSD 3-clause license
-
+import os.path
 import pickle
 
 import numpy as np
@@ -9,36 +9,27 @@ import torch
 # Settings controlling the independent variables of experiments depending on
 # the experiment mode:
 #   periodic: Controls periodicity.
-#   dynamic-lengths: Set to be the same as periodicity for the datasets,
-#     but every dataset is generated with series lengths following a geometric
-#     distribution depending on horizon and mean sequence length (see code).
-#   time-dependent: Controls increasing noise amplitude within a single time-series.
+#   time_dependent: Controls increasing noise amplitude within a single
+#     time-series.
 #   static: Controls noise amplitudes across the collection of time-series.
-#   long-horizon: Controls the horizon length of time-series.
 # See paper for details.
 
 EXPERIMENT_MODES = {
     'periodic': [2, 10],
-    'dynamic-lengths': [2, 10],
-    'time-dependent': range(1, 6),
+    'time_dependent': range(1, 6),
     'static': range(1, 6),
-    'long-horizon': [5, 10, 100],
+    'sample_complexity': [10, 100, 1000, 10000, 100000]
 }
 
-HORIZONS = {
-    'periodic': 10,
-    'dynamic-lengths': 10,
-    'time-dependent': 5,
-    'static': 5,
-    'long-horizon': [5, 10, 100]
-}
-
-MAX_SEQUENCE_LENGTHS = {
-    'periodic': 20,
-    'dynamic-lengths': 20,
-    'time-dependent': 10,
-    'static': 10,
-    'long-horizon': 10
+DEFAULT_PARAMETERS = {
+    'length': 15,
+    'horizon': 5,
+    'mean': 1,
+    'variance': 2,
+    'memory_factor': 0.9,
+    'amplitude': 5,
+    'harmonics': 1,
+    'periodicity': None,
 }
 
 
@@ -105,71 +96,7 @@ class AutoregressiveForecastDataset(torch.utils.data.Dataset):
         return self.X[idx], self.Y[idx], self.sequence_lengths[idx]
 
 
-def generate_autoregressive_forecast_dataset(n_samples=100,
-                                             seq_len=100,
-                                             n_features=1,
-                                             X_mean=1,
-                                             X_variance=2,
-                                             memory_factor=0.9,
-                                             experiment='time-dependent',
-                                             noise_profile=None,
-                                             periodicity=None,
-                                             amplitude=1,
-                                             harmonics=1,
-                                             horizon=10,
-                                             random_state=None):
-    if random_state is None:
-        random_state = np.random.RandomState(0)
-
-    seq_len = max(seq_len, horizon)
-
-    if noise_profile is None:
-        noise_profile = [0.2, 0.4, 0.6, 0.8, 1.]
-
-    if experiment == 'dynamic-lengths':
-        sequence_lengths = horizon + seq_len // 2 \
-                           + random_state.geometric(p=2 / seq_len,
-                                                    size=n_samples)
-    else:
-        sequence_lengths = np.array([seq_len + horizon] * n_samples)
-
-    # Create the input features of the generating process
-    X_gen = [random_state.normal(X_mean, X_variance, (seq_len,
-                                                      n_features))
-             for seq_len in sequence_lengths]
-
-    w = np.array([memory_factor ** k for k in range(np.max(sequence_lengths))])
-
-    if experiment == 'static':
-        noise_vars = [
-            [noise_profile[(s * len(noise_profile)) // len(sequence_lengths)]] *
-            sequence_lengths[s] for s in range(len(sequence_lengths))]
-    elif experiment == 'time-dependent' or experiment == 'long-horizon':
-        # Spread the noise profile across time-steps
-        noise_vars = [[noise_profile[(s * len(noise_profile)) // sl]
-                       for s in range(sl)] for sl in sequence_lengths]
-    else:
-        # No additional noise beyond the variance of X_gen
-        noise_vars = [[0] * sl for sl in sequence_lengths]
-
-    # X_full stores the time series values generated from features X_gen.
-    ar = [autoregressive(x, w).reshape(-1, n_features) for x in X_gen]
-    noise = [random_state.normal(0., nv).reshape(-1, n_features) for
-             nv in noise_vars]
-
-    if periodicity is not None:
-        asynchronous = experiment == 'dynamic-lengths'
-        periodic = [seasonal(sl, periodicity, amplitude, harmonics,
-                             random_state=random_state,
-                             asynchronous=asynchronous) for
-                    sl in
-                    sequence_lengths]
-    else:
-        periodic = np.array([np.zeros(sl) for sl in sequence_lengths]) \
-            .reshape(-1, 1)
-
-    X_full = [torch.tensor(i + j + k) for i, j, k in zip(ar, noise, periodic)]
-
+def split_train_sequence(X_full, horizon):
     # Splitting time series into training sequence X and target sequence Y;
     # Y stores the time series predicted targets `horizon` steps away
     X, Y = [], []
@@ -182,87 +109,129 @@ def generate_autoregressive_forecast_dataset(n_samples=100,
             X.append(seq[:seq_len - horizon])
             Y.append(seq[-(seq_len - horizon):])
 
-        # Examples with sequence lenghts <=`horizon` don't give any
-        # information and are excluded.
-        # assert np.min(sequence_lengths) > horizon
-    return X, Y, sequence_lengths
+    return X, Y
 
 
-def generate_raw_sequences(length=10, horizon=5,
-                           n_train=2000, n_test=500,
-                           cached=True,
-                           mean=1,
-                           variance=2,
-                           memory_factor=0.9,
-                           experiment='long-horizon',
-                           seed=0):
-    # Time series parameters
-    periodicity = None
-    amplitude = 1
+def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
+                                             n_features=1,
+                                             dynamic_sequence_lengths=False,
+                                             horizon=None,
+                                             custom_parameters=None,
+                                             random_state=None):
+    assert experiment in EXPERIMENT_MODES.keys()
 
-    if cached:
-        raw_sequences = []
-        for i in EXPERIMENT_MODES[experiment]:
-            with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
-                    experiment, i),
-                    'rb') as f:
+    if random_state is None:
+        random_state = np.random.RandomState(0)
+
+    params = DEFAULT_PARAMETERS.copy()
+    if custom_parameters is not None:
+        for key in custom_parameters.keys():
+            params[key] = custom_parameters[key]
+
+    if horizon is not None:
+        params['horizon'] = horizon
+        dynamic_sequence_lengths = False
+
+    if experiment == 'sample_complexity':
+        experiment = 'time_dependent'
+        n_samples = setting
+        setting = 1
+
+    # Setting static or dynamic sequence lengths
+    if dynamic_sequence_lengths:
+        sequence_lengths = \
+            params['horizon'] + params['length'] // 2 \
+            + random_state.geometric(p=2 / params['length'], size=n_samples)
+    else:
+        sequence_lengths = np.array(
+            [params['length'] + params['horizon']] * n_samples)
+
+    # Noise profile-dependent settings
+    if experiment == 'static':
+        noise_vars = [[0.1 * setting] * sl for sl in sequence_lengths]
+
+    elif experiment == 'time_dependent':
+        noise_vars = [[0.1 * setting * k for k in range(sl)]
+                      for sl in sequence_lengths]
+    else:
+        # No additional noise beyond the variance of X_gen
+        noise_vars = [[0] * sl for sl in sequence_lengths]
+
+    if experiment == 'periodic':
+        params['periodicity'] = setting
+
+    # Create the input features of the generating process
+    X_gen = [random_state.normal(params['mean'],
+                                 params['variance'], (sl, n_features))
+             for sl in sequence_lengths]
+
+    w = np.array([params['memory_factor'] ** k for k in range(np.max(
+        sequence_lengths))])
+
+    # X_full stores the time series values generated from features X_gen.
+    ar = [autoregressive(x, w).reshape(-1, n_features) for x in X_gen]
+    noise = [random_state.normal(0., nv).reshape(-1, n_features) for
+             nv in noise_vars]
+
+    if params['periodicity'] is not None:
+        periodic = [seasonal(sl, params['periodicity'], params['amplitude'],
+                             params['harmonics'],
+                             random_state=random_state,
+                             asynchronous=dynamic_sequence_lengths)
+                    for sl in sequence_lengths]
+    else:
+        periodic = np.array([np.zeros(sl) for sl in sequence_lengths]) \
+            .reshape(-1, 1)
+
+    X_full = [torch.tensor(i + j + k) for i, j, k in zip(ar, noise, periodic)]
+
+    # Splitting time series into training sequence X and target sequence Y;
+    # Y stores the time series predicted targets `horizon` steps away
+    X, Y = split_train_sequence(X_full, params['horizon'])
+    train_sequence_lengths = sequence_lengths - params['horizon']
+
+    return X, Y, train_sequence_lengths
+
+
+def get_raw_sequences(experiment, dynamic_sequence_lengths=False, horizon=None,
+                      seed=0):
+    assert experiment in EXPERIMENT_MODES.keys()
+
+    n_train = 2000
+    n_test = 500
+
+    raw_sequences = []
+    random_state = np.random.RandomState(seed)
+
+    for setting in EXPERIMENT_MODES[experiment]:
+        if experiment == 'sample_complexity':
+            n_train = setting
+        dataset_file = 'processed_data/synthetic-{}-{}-{}.pkl'.format(
+            experiment, setting, seed)
+
+        if os.path.isfile(dataset_file):
+            with open(dataset_file, 'rb') as f:
                 raw_train_sequences, raw_test_sequences = \
                     pickle.load(f)
             raw_sequences.append((raw_train_sequences, raw_test_sequences))
-    else:
-        raw_sequences = []
-        random_state = np.random.RandomState(seed)
-
-        for i in EXPERIMENT_MODES[experiment]:
-            if experiment == 'time-dependent':
-                noise_profile = [0.1 * i * k for k in range(length + horizon)]
-            elif experiment == 'static':
-                noise_profile = [0.1 * i for _ in range(length + horizon)]
-            elif experiment == 'long-horizon':
-                noise_profile = [0.1 * k for k in range(length + horizon)]
-                mean = 1
-                variance = 1
-                horizon = 100
-            else:  # noise_mode == 'periodic':
-                noise_profile = [0.5 * k for k in range(length + horizon)]
-                length = 20
-                horizon = 10
-                periodicity = i
-                amplitude = 5
-
+        else:
             X_train, Y_train, sequence_lengths_train = \
-                generate_autoregressive_forecast_dataset(
-                    n_samples=n_train,
-                    seq_len=length,
-                    horizon=horizon,
-                    periodicity=periodicity,
-                    amplitude=amplitude,
-                    X_mean=mean,
-                    X_variance=variance,
-                    experiment=experiment,
-                    memory_factor=memory_factor,
-                    noise_profile=noise_profile,
-                    random_state=random_state)
-            sequence_lengths_train = sequence_lengths_train - horizon
+                generate_autoregressive_forecast_dataset(n_samples=n_train,
+                                                         experiment=experiment,
+                                                         setting=setting,
+                                                         dynamic_sequence_lengths=dynamic_sequence_lengths,
+                                                         horizon=horizon,
+                                                         random_state=random_state)
 
             X_test, Y_test, sequence_lengths_test = \
-                generate_autoregressive_forecast_dataset(
-                    n_samples=n_test,
-                    seq_len=length,
-                    horizon=horizon,
-                    periodicity=periodicity,
-                    amplitude=amplitude,
-                    X_mean=mean,
-                    X_variance=variance,
-                    memory_factor=memory_factor,
-                    experiment=experiment,
-                    noise_profile=noise_profile,
-                    random_state=random_state)
-            sequence_lengths_test = sequence_lengths_test - horizon
+                generate_autoregressive_forecast_dataset(n_samples=n_test,
+                                                         experiment=experiment,
+                                                         setting=setting,
+                                                         dynamic_sequence_lengths=dynamic_sequence_lengths,
+                                                         horizon=horizon,
+                                                         random_state=random_state)
 
-            with open('processed_data/synthetic_{}_raw_seq_{}.pkl'.format(
-                    experiment, i),
-                    'wb') as f:
+            with open(dataset_file, 'wb') as f:
                 pickle.dump(((X_train, Y_train, sequence_lengths_train),
                              (X_test, Y_test, sequence_lengths_test)),
                             f,
@@ -274,7 +243,7 @@ def generate_raw_sequences(length=10, horizon=5,
     return raw_sequences
 
 
-def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5,
+def get_synthetic_dataset(raw_sequences, conformal=True, p_calibration=0.5,
                           seed=0):
     (X_train, Y_train, sequence_lengths_train), \
     (X_test, Y_test, sequence_lengths_test) = raw_sequences
@@ -283,7 +252,7 @@ def get_synthetic_dataset(raw_sequences, conformal=True, n_calibration=0.5,
         (X_train, Y_train, sequence_lengths_train), \
         (X_calibration, Y_calibration, sequence_lengths_calibration) = \
             split_train_dataset(X_train, Y_train, sequence_lengths_train,
-                                n_calibration, seed=seed)
+                                p_calibration, seed=seed)
 
         # X: [n_samples, max_seq_len, n_features]
         X_train_tensor = torch.nn.utils.rnn.pad_sequence(X_train,
