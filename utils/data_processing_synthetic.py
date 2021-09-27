@@ -18,6 +18,7 @@ EXPERIMENT_MODES = {
     'periodic': [2, 10],
     'time_dependent': range(1, 6),
     'static': range(1, 6),
+    'sample_complexity': [10, 100, 1000, 10000]
 }
 
 DEFAULT_PARAMETERS = {
@@ -131,6 +132,11 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
         params['horizon'] = horizon
         dynamic_sequence_lengths = False
 
+    if experiment == 'sample_complexity':
+        experiment = 'time_dpeendent'
+        n_samples = setting
+        setting = 1
+
     # Setting static or dynamic sequence lengths
     if dynamic_sequence_lengths:
         sequence_lengths = \
@@ -187,18 +193,21 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
     return X, Y, train_sequence_lengths
 
 
-def get_raw_sequences(experiment, n_train=2000, n_test=500,
+def get_raw_sequences(experiment,
                       cached=True,
                       dynamic_sequence_lengths=False,
                       horizon=None,
                       seed=0):
     assert experiment in EXPERIMENT_MODES.keys()
 
+    n_train = 2000
+    n_test = 500
+
     if cached:
         raw_sequences = []
-        for i in EXPERIMENT_MODES[experiment]:
+        for setting in EXPERIMENT_MODES[experiment]:
             with open('processed_data/synthetic-{}-{}-{}.pkl'.format(
-                    experiment, i, seed),
+                    experiment, setting, seed),
                     'rb') as f:
                 raw_train_sequences, raw_test_sequences = \
                     pickle.load(f)
@@ -207,11 +216,13 @@ def get_raw_sequences(experiment, n_train=2000, n_test=500,
         raw_sequences = []
         random_state = np.random.RandomState(seed)
 
-        for i in EXPERIMENT_MODES[experiment]:
+        for setting in enumerate(EXPERIMENT_MODES[experiment]):
+            if experiment == 'sample_complexity':
+                n_train = setting
             X_train, Y_train, sequence_lengths_train = \
                 generate_autoregressive_forecast_dataset(n_samples=n_train,
                                                          experiment=experiment,
-                                                         setting=i,
+                                                         setting=setting,
                                                          dynamic_sequence_lengths=dynamic_sequence_lengths,
                                                          horizon=horizon,
                                                          random_state=random_state)
@@ -219,13 +230,13 @@ def get_raw_sequences(experiment, n_train=2000, n_test=500,
             X_test, Y_test, sequence_lengths_test = \
                 generate_autoregressive_forecast_dataset(n_samples=n_test,
                                                          experiment=experiment,
-                                                         setting=i,
+                                                         setting=setting,
                                                          dynamic_sequence_lengths=dynamic_sequence_lengths,
                                                          horizon=horizon,
                                                          random_state=random_state)
 
             with open('processed_data/synthetic-{}-{}-{}.pkl'.format(
-                    experiment, i, seed),
+                    experiment, setting, seed),
                     'wb') as f:
                 pickle.dump(((X_train, Y_train, sequence_lengths_train),
                              (X_test, Y_test, sequence_lengths_test)),
