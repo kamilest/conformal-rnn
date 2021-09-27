@@ -42,11 +42,9 @@ def get_max_steps(train_dataset, test_dataset):
     return max(max(train_dataset[2]), max(test_dataset[2]))
 
 
-def run_synthetic_experiments(experiment, baseline,
-                              retrain=False, params=None,
-                              dynamic_sequence_lengths=False,
-                              horizon=None, beta=None,
-                              cached_datasets=True, correct_conformal=True,
+def run_synthetic_experiments(experiment, baseline, retrain=False, params=None,
+                              dynamic_sequence_lengths=False, horizon=None,
+                              beta=None, correct_conformal=True,
                               save_model=False, save_results=True,
                               rnn_mode=None, seed=0):
     assert baseline in BASELINES.keys(), 'Invalid baseline'
@@ -59,10 +57,8 @@ def run_synthetic_experiments(experiment, baseline,
     if retrain:
         raw_sequence_datasets = \
             get_raw_sequences(experiment=experiment,
-                              cached=cached_datasets,
                               dynamic_sequence_lengths=dynamic_sequence_lengths,
-                              horizon=horizon,
-                              seed=seed)
+                              horizon=horizon, seed=seed)
         print('Training {}'.format(baseline))
 
         for i, raw_sequence_dataset in enumerate(raw_sequence_datasets):
