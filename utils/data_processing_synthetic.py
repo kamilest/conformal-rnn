@@ -193,12 +193,15 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
     return X, Y, train_sequence_lengths
 
 
-def get_raw_sequences(experiment, dynamic_sequence_lengths=False, horizon=None,
+def get_raw_sequences(experiment, n_train=None, n_test=None,
+                      dynamic_sequence_lengths=False, horizon=None,
                       seed=0):
     assert experiment in EXPERIMENT_MODES.keys()
 
-    n_train = 2000
-    n_test = 500
+    if n_train is None:
+        n_train = 2000
+    if n_test is None:
+        n_test = 500
 
     raw_sequences = []
     random_state = np.random.RandomState(seed)
@@ -206,8 +209,8 @@ def get_raw_sequences(experiment, dynamic_sequence_lengths=False, horizon=None,
     for setting in EXPERIMENT_MODES[experiment]:
         if experiment == 'sample_complexity':
             n_train = setting
-        dataset_file = 'processed_data/synthetic-{}-{}-{}.pkl'.format(
-            experiment, setting, seed)
+        dataset_file = 'processed_data/synthetic-{}-{}-{}-{}.pkl'.format(
+            experiment, setting, seed, n_train)
 
         if os.path.isfile(dataset_file):
             with open(dataset_file, 'rb') as f:

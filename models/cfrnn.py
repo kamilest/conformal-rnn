@@ -345,7 +345,7 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
     def fit(self, train_dataset, calibration_dataset, epochs, lr,
             normaliser_epochs=500,
             batch_size=32):
-        if self.auxiliary_forecaster_path is None:
+        if self.requires_auxiliary_fit:
             # Train the multi-horizon forecaster.
             self.auxiliary_forecaster.fit(train_dataset, batch_size, epochs, lr)
 

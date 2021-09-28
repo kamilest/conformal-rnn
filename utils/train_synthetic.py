@@ -42,8 +42,10 @@ def get_max_steps(train_dataset, test_dataset):
     return max(max(train_dataset[2]), max(test_dataset[2]))
 
 
-def run_synthetic_experiments(experiment, baseline, retrain=False, params=None,
-                              dynamic_sequence_lengths=False, horizon=None,
+def run_synthetic_experiments(experiment, baseline, retrain_auxiliary=False,
+                              params=None,
+                              dynamic_sequence_lengths=False,
+                              n_train=None, horizon=None,
                               beta=None, correct_conformal=True,
                               save_model=False, save_results=True,
                               rnn_mode=None, seed=0):
@@ -54,96 +56,94 @@ def run_synthetic_experiments(experiment, baseline, retrain=False, params=None,
 
     torch.manual_seed(seed)
 
-    if retrain:
-        raw_sequence_datasets = \
-            get_raw_sequences(experiment=experiment,
-                              dynamic_sequence_lengths=dynamic_sequence_lengths,
-                              horizon=horizon, seed=seed)
-        print('Training {}'.format(baseline))
+    raw_sequence_datasets = \
+        get_raw_sequences(experiment=experiment, n_train=n_train,
+                          dynamic_sequence_lengths=dynamic_sequence_lengths,
+                          horizon=horizon, seed=seed)
+    print('Training {}'.format(baseline))
 
-        for i, raw_sequence_dataset in enumerate(raw_sequence_datasets):
-            print('Training dataset {}'.format(i))
+    for i, raw_sequence_dataset in enumerate(raw_sequence_datasets):
+        print('Training dataset {}'.format(i))
 
-            if params is None:
-                params = DEFAULT_SYNTHETIC_TRAINING_PARAMETERS.copy()
+        if params is None:
+            params = DEFAULT_SYNTHETIC_TRAINING_PARAMETERS.copy()
 
-            if rnn_mode is not None:
-                params['rnn_mode'] = rnn_mode
+        if rnn_mode is not None:
+            params['rnn_mode'] = rnn_mode
 
-            if beta is not None:
-                params['beta'] = beta
+        if beta is not None:
+            params['beta'] = beta
 
-            params['output_size'] = \
-                horizon if horizon else DEFAULT_PARAMETERS['horizon']
+        if retrain_auxiliary:
+            auxiliary_forecaster_path = 'saved_models/{}-aux-{}-{}-{}.pt'.format(
+                experiment, params['rnn_mode'],
+                EXPERIMENT_MODES[experiment][i], seed)
+        else:
+            auxiliary_forecaster_path = None
 
-            if baseline in CONFORMAL_BASELINES:
-                params['epochs'] = 1000
+        params['output_size'] = \
+            horizon if horizon else DEFAULT_PARAMETERS['horizon']
 
-                train_dataset, calibration_dataset, test_dataset = \
-                    get_synthetic_dataset(raw_sequence_dataset,
-                                          conformal=True, seed=seed)
-                model = BASELINES[baseline](
-                    embedding_size=params['embedding_size'],
-                    horizon=params['horizon'],
-                    error_rate=1 - params['coverage'],
-                    rnn_mode=params['rnn_mode'],
-                    auxiliary_forecaster_path= \
-                        'saved_models/{}-aux-{}-{}-{}.pt'.format(
-                            experiment, params['rnn_mode'],
-                            EXPERIMENT_MODES[experiment][i], seed),
-                    beta=params['beta'])
-                model.fit(train_dataset, calibration_dataset,
-                          epochs=params['epochs'], lr=params['lr'],
-                          batch_size=params['batch_size'],
-                          normaliser_epochs=params['normaliser_epochs'])
+        if baseline in CONFORMAL_BASELINES:
+            params['epochs'] = 1000
 
-                result = evaluate_cfrnn_performance(model, test_dataset,
-                                                    correct_conformal)
+            train_dataset, calibration_dataset, test_dataset = \
+                get_synthetic_dataset(raw_sequence_dataset,
+                                      conformal=True, seed=seed)
+            model = BASELINES[baseline](
+                embedding_size=params['embedding_size'],
+                horizon=params['horizon'],
+                error_rate=1 - params['coverage'],
+                rnn_mode=params['rnn_mode'],
+                auxiliary_forecaster_path=auxiliary_forecaster_path,
+                beta=params['beta'])
+            model.fit(train_dataset, calibration_dataset,
+                      epochs=params['epochs'], lr=params['lr'],
+                      batch_size=params['batch_size'],
+                      normaliser_epochs=params['normaliser_epochs'])
 
+            result = evaluate_cfrnn_performance(model, test_dataset,
+                                                correct_conformal)
+
+        else:
+            train_dataset, test_dataset = \
+                get_synthetic_dataset(raw_sequence_dataset,
+                                      conformal=False, seed=seed)
+
+            if dynamic_sequence_lengths or horizon is None:
+                params['max_steps'] = get_max_steps(train_dataset,
+                                                    test_dataset)
+
+            if baseline == 'BJRNN':
+                RNN_model = RNN(**params)
+                RNN_model.fit(train_dataset[0], train_dataset[1])
+                model = RNN_uncertainty_wrapper(RNN_model)
             else:
-                train_dataset, test_dataset = \
-                    get_synthetic_dataset(raw_sequence_dataset,
-                                          conformal=False, seed=seed)
+                model = BASELINES[baseline](**params)
+                model.fit(train_dataset[0], train_dataset[1])
 
-                if dynamic_sequence_lengths or horizon is None:
-                    params['max_steps'] = get_max_steps(train_dataset,
-                                                        test_dataset)
+            result = evaluate_performance(model,
+                                          test_dataset[0],
+                                          test_dataset[1],
+                                          coverage=params['coverage'])
 
-                if baseline == 'BJRNN':
-                    RNN_model = RNN(**params)
-                    RNN_model.fit(train_dataset[0], train_dataset[1])
-                    model = RNN_uncertainty_wrapper(RNN_model)
-                else:
-                    model = BASELINES[baseline](**params)
-                    model.fit(train_dataset[0], train_dataset[1])
+        baseline_results.append(result)
 
-                result = evaluate_performance(model,
-                                              test_dataset[0],
-                                              test_dataset[1],
-                                              coverage=params['coverage'])
+        if save_model:
+            torch.save(model,
+                       'saved_models/{}-{}-{}-{}-{}.pt'.format(
+                           experiment, baseline, model.rnn_mode,
+                           EXPERIMENT_MODES[experiment][i], seed))
 
-            baseline_results.append(result)
+        del model
+        gc.collect()
 
-            if save_model:
-                torch.save(model,
-                           'saved_models/{}-{}-{}-{}-{}.pt'.format(
-                               experiment, baseline, model.rnn_mode,
-                               EXPERIMENT_MODES[experiment][i], seed))
-
-            del model
-            gc.collect()
-
-        if save_results:
-            with open('saved_results/{}-{}-{}.pkl'.format(experiment,
-                                                          baseline, seed),
-                      'wb') as f:
-                pickle.dump(baseline_results, f,
-                            protocol=pickle.HIGHEST_PROTOCOL)
-    else:
+    if save_results:
         with open('saved_results/{}-{}-{}.pkl'.format(experiment,
                                                       baseline, seed),
-                  'rb') as f:
-            baseline_results = pickle.load(f)
+                  'wb') as f:
+            pickle.dump(baseline_results, f,
+                        protocol=pickle.HIGHEST_PROTOCOL)
 
     return baseline_results
 
