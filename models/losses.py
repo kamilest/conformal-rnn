@@ -1,9 +1,8 @@
-# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors, Ahmed M. Alaa
+# Copyright (c) 2021, Kamilė Stankevičiūtė
+# Adapted from Ahmed M. Alaa github.com/ahmedmalaa/rnn-blockwise-jackknife
 # Licensed under the BSD 3-clause license
 
 import torch
-
-torch.manual_seed(1)
 
 
 def model_loss_single(output, target, masks):
@@ -20,7 +19,7 @@ def single_losses(model):
 
 def model_loss(output, target, masks):
     single_loss = torch.nn.functional.mse_loss(output, target,
-                                                       reduction='none')
+                                               reduction='none')
     single_loss = masks * single_loss
     loss = torch.sum(
         torch.sum(single_loss, dim=1) / torch.sum(torch.sum(masks, dim=1)))

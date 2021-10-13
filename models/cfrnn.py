@@ -1,18 +1,23 @@
-# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors
+# Copyright (c) 2021, Kamilė Stankevičiūtė
 # Licensed under the BSD 3-clause license
 
-import os.path
+""" CFRNN model. """
 
+import os.path
 import torch
 
 
 def coverage(intervals, target):
     """
-    Determines whether intervals cover the target prediction.
-    Depending on the coverage_mode (either 'joint' or 'independent), will return
-    either a list of whether each target or all targets satisfy the coverage.
+    Determines whether intervals cover the target prediction
+    considering each target horizon either separately or jointly.
 
-    intervals: shape [batch_size, 2, horizon, n_outputs]
+    Args:
+        intervals: shape [batch_size, 2, horizon, n_outputs]
+        target: ground truth forecast values
+
+    Returns:
+        individual and joint coverage rates
     """
 
     lower, upper = intervals[:, 0], intervals[:, 1]
@@ -23,6 +28,17 @@ def coverage(intervals, target):
 
 
 def get_critical_scores(calibration_scores, q):
+    """ Computes critical calibration scores from scores in the calibration set.
+
+    Args:
+        calibration_scores: calibration scores for each example in the
+            calibration set.
+        q: target quantile for which to return the calibration score
+
+    Returns:
+        critical calibration scores for each target horizon
+    """
+
     return torch.tensor([[torch.quantile(
         position_calibration_scores,
         q=q)
@@ -31,8 +47,13 @@ def get_critical_scores(calibration_scores, q):
 
 
 def get_lengths_mask(sequences, lengths, horizon):
-    """Returns the lengths mask indicating the positions where every
-    sequences in the batch are valid."""
+    """ Returns the mask indicating which positions in the sequence are valid.
+
+    Args:
+        sequences: (batch of) input sequences
+        lengths: the lengths of every sequence in the batch
+        horizon: the forecasting horizon
+    """
 
     lengths_mask = torch.zeros(sequences.size(0), horizon,
                                sequences.size(2))
@@ -43,8 +64,25 @@ def get_lengths_mask(sequences, lengths, horizon):
 
 
 class AuxiliaryForecaster(torch.nn.Module):
+    """ The auxiliary RNN issuing point predictions.
+
+    Point predictions are used as baseline to which the (normalised)
+    uncertainty intervals are added in the main CFRNN network.
+    """
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  rnn_mode='LSTM', path=None):
+        """ Initialises the auxiliary forecaster.
+
+        Args:
+            embedding_size: hyperparameter indicating the size of the latent
+                RNN embeddings.
+            input_size: dimensionality of the input time-series
+            output_size: dimensionality of the forecast
+            horizon: forecasting horizon
+            rnn_mode: type of the underlying RNN network
+            path: in case the model is already trained, it can be loaded from
+                the file provided through this argument.
+        """
         super(AuxiliaryForecaster, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
@@ -304,7 +342,6 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         criterion = torch.nn.MSELoss()
 
-        # TODO early stopping based on validation loss of the calibration set
         for epoch in range(epochs):
             train_loss = 0.
 
@@ -364,7 +401,6 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
         score = self.score(x, len(x))
         if not corrected:
             # [batch_size, horizon, n_outputs]
-            # TODO make sure len(x) is correct
             lower = out - self.critical_calibration_scores * score
             upper = out + self.critical_calibration_scores * score
 

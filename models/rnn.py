@@ -1,16 +1,16 @@
-# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors, Ahmed M. Alaa
+# Copyright (c) 2021, Kamilė Stankevičiūtė
+# Adapted from Ahmed M. Alaa github.com/ahmedmalaa/rnn-blockwise-jackknife
 # Licensed under the BSD 3-clause license
 
 import numpy as np
 import torch
-from torch import nn
 from torch.autograd import Variable
 
 from models.losses import model_loss, single_losses
 from utils.data_padding import padd_arrays, unpadd_arrays
 
 
-class RNN(nn.Module):
+class RNN(torch.nn.Module):
     def __init__(self, rnn_mode="RNN", epochs=5, batch_size=150, max_steps=50,
                  input_size=30, lr=0.01, output_size=1, embedding_size=20,
                  n_layers=1, n_steps=50, **kwargs):
@@ -27,24 +27,24 @@ class RNN(nn.Module):
         self.NUM_LAYERS = n_layers
         self.N_STEPS = n_steps
 
-        rnn_dict = {"RNN": nn.RNN(input_size=self.INPUT_SIZE,
-                                  hidden_size=self.HIDDEN_UNITS,
-                                  num_layers=self.NUM_LAYERS,
-                                  batch_first=True, ),
-                    "LSTM": nn.LSTM(input_size=self.INPUT_SIZE,
-                                    hidden_size=self.HIDDEN_UNITS,
-                                    num_layers=self.NUM_LAYERS,
-                                    batch_first=True, ),
-                    "GRU": nn.GRU(input_size=self.INPUT_SIZE,
-                                  hidden_size=self.HIDDEN_UNITS,
-                                  num_layers=self.NUM_LAYERS,
-                                  batch_first=True, )
+        rnn_dict = {"RNN": torch.nn.RNN(input_size=self.INPUT_SIZE,
+                                        hidden_size=self.HIDDEN_UNITS,
+                                        num_layers=self.NUM_LAYERS,
+                                        batch_first=True, ),
+                    "LSTM": torch.nn.LSTM(input_size=self.INPUT_SIZE,
+                                          hidden_size=self.HIDDEN_UNITS,
+                                          num_layers=self.NUM_LAYERS,
+                                          batch_first=True, ),
+                    "GRU": torch.nn.GRU(input_size=self.INPUT_SIZE,
+                                        hidden_size=self.HIDDEN_UNITS,
+                                        num_layers=self.NUM_LAYERS,
+                                        batch_first=True, )
                     }
 
         self.rnn_mode = rnn_mode
         self.rnn = rnn_dict[self.rnn_mode]
 
-        self.out = nn.Linear(self.HIDDEN_UNITS, self.OUTPUT_SIZE)
+        self.out = torch.nn.Linear(self.HIDDEN_UNITS, self.OUTPUT_SIZE)
 
         self.X = None
         self.y = None
@@ -95,7 +95,8 @@ class RNN(nn.Module):
                                                  replace=True, p=None)
 
                 # reshape x to (batch, time_step, input_size)
-                x = torch.tensor(X[batch_indexes, :, :]).reshape(-1, self.MAX_STEPS,
+                x = torch.tensor(X[batch_indexes, :, :]).reshape(-1,
+                                                                 self.MAX_STEPS,
                                                                  self.INPUT_SIZE).detach()
                 y = torch.tensor(Y[batch_indexes]).detach()
                 msk = torch.tensor(loss_masks[batch_indexes]).detach()
@@ -111,7 +112,6 @@ class RNN(nn.Module):
 
             if epoch % 50 == 0:
                 print('Epoch: ', epoch, '| train loss: %.4f' % self.loss.data)
-
 
     def predict(self, X, padd=False):
         if type(X) is list:
