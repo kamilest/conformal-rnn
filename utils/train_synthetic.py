@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors
+# Copyright (c) 2021, Kamilė Stankevičiūtė
 # Licensed under the BSD 3-clause license
 
 import gc
@@ -49,6 +49,28 @@ def run_synthetic_experiments(experiment, baseline, retrain_auxiliary=False,
                               beta=None, correct_conformal=True,
                               save_model=False, save_results=True,
                               rnn_mode=None, seed=0):
+    """
+    Runs an experiment for a synthetic dataset.
+
+    Args:
+        experiment: type of experiment ('time_dependent', 'static', 'periodic', 'sample_complexity')
+        baseline: the model to be trained ('BJRNN', 'DPRNN', 'QRNN', 'CFRNN', 'AdaptiveCFRNN')
+        retrain_auxiliary: whether to retrain the AuxiliaryForecaster of the CFRNN models
+        params: dictionary of training parameters
+        dynamic_sequence_lengths: whether to use datasets where sequences have different randomly sampled lengths
+        n_train: number of training examples
+        horizon: forecasting horizon
+        beta: (in AdaptiveCFRNN) hyperparameter to dampen the importance of the correction factor
+        correct_conformal: whether to use Bonferroni-corrected calibration scores
+        save_model: whether to save the model in the `./saved_models/` directory
+        save_results: whether to save the results in `./saved_results/`
+        rnn_mode: (in CFRNN) the type of RNN of the underlying forecaster (RNN/LSTM/GRU)
+        seed: random seed
+
+    Returns:
+        a dictionary of result metrics
+    """
+
     assert baseline in BASELINES.keys(), 'Invalid baseline'
     assert experiment in EXPERIMENT_MODES.keys(), 'Invalid experiment'
 
