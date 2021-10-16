@@ -18,7 +18,7 @@ EXPERIMENT_MODES = {
     'periodic': [2, 10],
     'time_dependent': range(1, 6),
     'static': range(1, 6),
-    'sample_complexity': [10, 100, 1000, 10000, 100000]
+    'sample_complexity': [10, 100, 1000, 10000]
 }
 
 DEFAULT_PARAMETERS = {

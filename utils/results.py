@@ -132,7 +132,7 @@ def plot_timeseries(experiment, baseline, seed=0, index=None,
                         hspace=0.4)
 
     if figure_name is not None:
-        plt.savefig('{}.png'.format(figure_name), bbox_inches='tight')
+        plt.savefig('{}.png'.format(figure_name), bbox_inches='tight', dpi=600)
     plt.show()
 
 # Independent coverage
@@ -169,5 +169,5 @@ def plot_sample_complexity(seed=0, figure_name=None):
     figb.set(xlabel="log(Training dataset size)", ylabel="Average interval width")
 
     if figure_name is not None:
-        plt.savefig('{}.png'.format(figure_name), bbox_inches='tight')
+        plt.savefig('{}.png'.format(figure_name), bbox_inches='tight', dpi=600)
     plt.show()
