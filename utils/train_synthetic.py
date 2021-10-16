@@ -96,7 +96,7 @@ def run_synthetic_experiments(experiment, baseline, retrain_auxiliary=False,
         if beta is not None:
             params['beta'] = beta
 
-        if retrain_auxiliary:
+        if not retrain_auxiliary:
             auxiliary_forecaster_path = 'saved_models/{}-aux-{}-{}-{}.pt'.format(
                 experiment, params['rnn_mode'],
                 EXPERIMENT_MODES[experiment][i], seed)
