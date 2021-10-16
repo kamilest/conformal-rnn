@@ -48,7 +48,8 @@ def get_interval_widths(baseline, experiment, seeds=None):
 
 
 def plot_timeseries(experiment, baseline, seed=0, index=None,
-                    forecast_only=False, figsize=(28, 4), figure_name=None):
+                    forecast_only=False, figsize=(28, 4), figure_name=None,
+                    n_samples=2000):
 
     assert experiment in EXPERIMENT_MODES.keys()
 
@@ -61,8 +62,8 @@ def plot_timeseries(experiment, baseline, seed=0, index=None,
 
     datasets = []
     for i in EXPERIMENT_MODES[experiment]:
-        with open('processed_data/synthetic-{}-{}-{}.pkl'.format(experiment, i,
-                                                                 seed),
+        with open('processed_data/synthetic-{}-{}-{}-{}.pkl'.format(
+                experiment, i, seed, n_samples),
                   'rb') as f:
             datasets.append(pickle.load(f))
 
