@@ -4,8 +4,9 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 
-from utils.train_synthetic import load_synthetic_results
 from utils.data_processing_synthetic import EXPERIMENT_MODES
+from utils.train_medical import load_medical_results
+from utils.train_synthetic import load_synthetic_results
 
 
 def get_joint_coverages(baseline, experiment, seeds=None):
@@ -21,6 +22,20 @@ def get_joint_coverages(baseline, experiment, seeds=None):
             dataset_coverages.append(
                 result['Mean joint coverage'] * 100)
         coverages.append(dataset_coverages)
+    coverages = np.array(coverages)
+    return coverages.mean(axis=0), coverages.std(axis=0)
+
+
+def get_joint_medical_coverages(baseline, dataset, seeds=None,
+                                correct_conformal=True):
+    if seeds is None:
+        seeds = list(range(5))
+    coverages = []
+    for seed in seeds:
+        result = load_medical_results(dataset=dataset,
+                                      baseline=baseline, seed=seed,
+                                      correct_conformal=correct_conformal)
+        coverages.append(result['Mean joint coverage'] * 100)
     coverages = np.array(coverages)
     return coverages.mean(axis=0), coverages.std(axis=0)
 
@@ -48,10 +63,25 @@ def get_interval_widths(baseline, experiment, seeds=None):
     return widths.mean(axis=(0, 2)), widths.std(axis=(0, 2))
 
 
+def get_medical_interval_widths(dataset, baseline, seeds=None):
+    if seeds is None:
+        seeds = list(range(5))
+    widths = []
+    for seed in seeds:
+        result = load_medical_results(dataset=dataset,
+                                       baseline=baseline, seed=seed)
+        # [1 x horizon] for a single dataset setting
+        width = result['Mean confidence interval widths'].tolist()
+        widths.append(width)
+
+    widths = np.array(widths)
+    # datasets (average the horizons and seeds)
+    return widths.mean(axis=(0, 2)), widths.std(axis=(0, 2))
+
+
 def plot_timeseries(experiment, baseline, seed=0, index=None,
                     forecast_only=False, figsize=(28, 4), figure_name=None,
                     n_samples=2000):
-
     assert experiment in EXPERIMENT_MODES.keys()
 
     plt.rcParams.update({
@@ -65,7 +95,7 @@ def plot_timeseries(experiment, baseline, seed=0, index=None,
     for i in EXPERIMENT_MODES[experiment]:
         with open('processed_data/synthetic-{}-{}-{}-{}.pkl'.format(
                 experiment, i, seed, n_samples),
-                  'rb') as f:
+                'rb') as f:
             datasets.append(pickle.load(f))
 
     with open('saved_results/{}-{}-{}.pkl'.format(experiment, baseline, seed),
@@ -156,7 +186,8 @@ def plot_sample_complexity(seed=0, figure_name=None):
     figa.set(xlabel="log(Training dataset size)", ylabel="Joint coverage, %")
 
     figb = sns.lineplot(ax=ax2, data=widths_mean)
-    figb.set(xlabel="log(Training dataset size)", ylabel="Average interval width")
+    figb.set(xlabel="log(Training dataset size)",
+             ylabel="Average interval width")
 
     if figure_name is not None:
         plt.savefig('{}.png'.format(figure_name), bbox_inches='tight', dpi=600)
