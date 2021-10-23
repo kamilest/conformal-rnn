@@ -180,10 +180,10 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
                              asynchronous=dynamic_sequence_lengths)
                     for sl in sequence_lengths]
     else:
-        periodic = np.array([np.zeros(sl) for sl in sequence_lengths]) \
-            .reshape(-1, 1)
+        periodic = np.array([np.zeros(sl) for sl in sequence_lengths])
 
-    X_full = [torch.tensor(i + j + k) for i, j, k in zip(ar, noise, periodic)]
+    X_full = [torch.tensor(i + j + k.reshape(-1, 1))
+              for i, j, k in zip(ar, noise, periodic)]
 
     # Splitting time series into training sequence X and target sequence Y;
     # Y stores the time series predicted targets `horizon` steps away
