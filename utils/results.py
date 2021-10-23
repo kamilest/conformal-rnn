@@ -44,7 +44,8 @@ def get_interval_widths(baseline, experiment, seeds=None):
         widths.append(dataset_widths)
 
     widths = np.array(widths)
-    return widths.mean(axis=0), widths.std(axis=0)
+    # datasets (average the horizons and seeds)
+    return widths.mean(axis=(0, 2)), widths.std(axis=(0, 2))
 
 
 def plot_timeseries(experiment, baseline, seed=0, index=None,
