@@ -42,6 +42,34 @@ def get_max_steps(train_dataset, test_dataset):
     return max(max(train_dataset[2]), max(test_dataset[2]))
 
 
+def get_model_path(experiment, rnn_mode, mode, seed, dynamic_sequence_lengths,
+                   horizon, baseline=None):
+    return 'saved_models/{}-{}-{}-{}-{}{}{}.pt'.format(
+        experiment,
+        'aux' if baseline is None else baseline,
+        rnn_mode,
+        mode,
+        seed,
+        ('-dynamic' if dynamic_sequence_lengths else ''),
+        ('-horizon{}'.format(horizon)
+         if horizon is not None and horizon !=
+            DEFAULT_SYNTHETIC_TRAINING_PARAMETERS['horizon']
+         else ''))
+
+
+def get_results_path(experiment, baseline, seed, dynamic_sequence_lengths,
+                     horizon):
+    return 'saved_results/{}-{}-{}{}{}.pkl'.format(
+        experiment,
+        baseline,
+        seed,
+        ('-dynamic' if dynamic_sequence_lengths else ''),
+        ('-horizon{}'.format(horizon)
+         if horizon is not None and horizon !=
+            DEFAULT_SYNTHETIC_TRAINING_PARAMETERS['horizon']
+         else ''))
+
+
 def run_synthetic_experiments(experiment, baseline, retrain_auxiliary=False,
                               params=None,
                               dynamic_sequence_lengths=False,
@@ -97,9 +125,11 @@ def run_synthetic_experiments(experiment, baseline, retrain_auxiliary=False,
             params['beta'] = beta
 
         if not retrain_auxiliary:
-            auxiliary_forecaster_path = 'saved_models/{}-aux-{}-{}-{}.pt'.format(
-                experiment, params['rnn_mode'],
-                EXPERIMENT_MODES[experiment][i], seed)
+            auxiliary_forecaster_path = \
+                get_model_path(experiment, params['rnn_mode'],
+                               EXPERIMENT_MODES[experiment][i],
+                               seed,
+                               dynamic_sequence_lengths, horizon)
         else:
             auxiliary_forecaster_path = None
 
@@ -153,16 +183,18 @@ def run_synthetic_experiments(experiment, baseline, retrain_auxiliary=False,
 
         if save_model:
             torch.save(model,
-                       'saved_models/{}-{}-{}-{}-{}.pt'.format(
-                           experiment, baseline, model.rnn_mode,
-                           EXPERIMENT_MODES[experiment][i], seed))
+                       get_model_path(experiment, model.rnn_mode,
+                                      EXPERIMENT_MODES[experiment][i], seed,
+                                      dynamic_sequence_lengths, horizon,
+                                      baseline))
 
         del model
         gc.collect()
 
     if save_results:
-        with open('saved_results/{}-{}-{}.pkl'.format(experiment,
-                                                      baseline, seed),
+        with open(get_results_path(experiment,
+                                   baseline, seed,
+                                   dynamic_sequence_lengths, horizon),
                   'wb') as f:
             pickle.dump(baseline_results, f,
                         protocol=pickle.HIGHEST_PROTOCOL)
@@ -170,10 +202,13 @@ def run_synthetic_experiments(experiment, baseline, retrain_auxiliary=False,
     return baseline_results
 
 
-def load_synthetic_results(experiment, baseline, seed=0):
-    with open('saved_results/{}-{}-{}.pkl'.format(experiment,
-                                                  baseline, seed),
-              'rb') as f:
+def load_synthetic_results(experiment, baseline, seed=0, horizon=None,
+                           dynamic_sequence_lengths=False):
+    path = get_results_path(experiment,
+                            baseline, seed,
+                            dynamic_sequence_lengths,
+                            horizon)
+    with open(path, 'rb') as f:
         baseline_results = pickle.load(f)
 
     return baseline_results
