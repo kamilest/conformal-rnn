@@ -71,6 +71,7 @@ def get_results_path(experiment, baseline, seed, dynamic_sequence_lengths,
 
 
 def run_synthetic_experiments(experiment, baseline, retrain_auxiliary=False,
+                              recompute_dataset=False,
                               params=None,
                               dynamic_sequence_lengths=False,
                               n_train=None, horizon=None,
@@ -84,6 +85,7 @@ def run_synthetic_experiments(experiment, baseline, retrain_auxiliary=False,
         experiment: type of experiment ('time_dependent', 'static', 'periodic', 'sample_complexity')
         baseline: the model to be trained ('BJRNN', 'DPRNN', 'QRNN', 'CFRNN', 'AdaptiveCFRNN')
         retrain_auxiliary: whether to retrain the AuxiliaryForecaster of the CFRNN models
+        recompute_dataset: whether to generate the dataset from scratch
         params: dictionary of training parameters
         dynamic_sequence_lengths: whether to use datasets where sequences have different randomly sampled lengths
         n_train: number of training examples
@@ -109,7 +111,8 @@ def run_synthetic_experiments(experiment, baseline, retrain_auxiliary=False,
     raw_sequence_datasets = \
         get_raw_sequences(experiment=experiment, n_train=n_train,
                           dynamic_sequence_lengths=dynamic_sequence_lengths,
-                          horizon=horizon, seed=seed)
+                          horizon=horizon, seed=seed,
+                          recompute_dataset=recompute_dataset)
     print('Training {}'.format(baseline))
 
     for i, raw_sequence_dataset in enumerate(raw_sequence_datasets):
@@ -123,6 +126,9 @@ def run_synthetic_experiments(experiment, baseline, retrain_auxiliary=False,
 
         if beta is not None:
             params['beta'] = beta
+
+        if horizon is not None:
+            params['horizon'] = horizon
 
         if not retrain_auxiliary:
             auxiliary_forecaster_path = \
