@@ -210,8 +210,13 @@ def get_raw_sequences(experiment, n_train=None, n_test=None,
     for setting in EXPERIMENT_MODES[experiment]:
         if experiment == 'sample_complexity':
             n_train = setting
-        dataset_file = 'processed_data/synthetic-{}-{}-{}-{}.pkl'.format(
-            experiment, setting, seed, n_train)
+        dataset_file = 'processed_data/synthetic-{}-{}-{}-{}{}{}.pkl'.format(
+            experiment, setting, seed, n_train, ('-dynamic' if
+                                                 dynamic_sequence_lengths
+                                                 else ''),
+            ('-horizon{}'.format(horizon) if horizon is not None and
+                                             horizon != DEFAULT_PARAMETERS[
+                                                 'horizon'] else ''))
 
         if os.path.isfile(dataset_file) and not recompute_dataset:
             with open(dataset_file, 'rb') as f:
