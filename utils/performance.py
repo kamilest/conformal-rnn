@@ -73,7 +73,7 @@ def evaluate_performance(model, X_test, Y_test, coverage=.9):
     upper = np.array(y_u_approx).squeeze()
     lower = np.array(y_l_approx).squeeze()
     pred = np.array(y_pred).squeeze()
-    target = np.array([t.numpy() for t in Y_test]).squeeze()
+    target = np.array([t for t in Y_test]).squeeze()
 
     results["Point predictions"] = np.array(y_pred)
     results["Upper limit"] = np.array(y_u_approx)
