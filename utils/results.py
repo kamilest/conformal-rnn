@@ -63,20 +63,20 @@ def get_interval_widths(baseline, experiment, seeds=None):
     return widths.mean(axis=(0, 2)), widths.std(axis=(0, 2))
 
 
-def get_medical_interval_widths(dataset, baseline, seeds=None):
+def get_medical_interval_widths(baseline, dataset, seeds=None):
     if seeds is None:
         seeds = list(range(5))
     widths = []
     for seed in seeds:
         result = load_medical_results(dataset=dataset,
-                                       baseline=baseline, seed=seed)
+                                      baseline=baseline, seed=seed)
         # [1 x horizon] for a single dataset setting
         width = result['Mean confidence interval widths'].tolist()
         widths.append(width)
 
     widths = np.array(widths)
     # datasets (average the horizons and seeds)
-    return widths.mean(axis=(0, 2)), widths.std(axis=(0, 2))
+    return widths.mean(), widths.std()
 
 
 def plot_timeseries(experiment, baseline, seed=0, index=None,
