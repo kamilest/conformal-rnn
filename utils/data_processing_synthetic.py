@@ -195,6 +195,7 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
 
 def get_raw_sequences(experiment, n_train=None, n_test=None,
                       dynamic_sequence_lengths=False, horizon=None,
+                      recompute_dataset=False,
                       seed=0):
     assert experiment in EXPERIMENT_MODES.keys()
 
@@ -212,7 +213,7 @@ def get_raw_sequences(experiment, n_train=None, n_test=None,
         dataset_file = 'processed_data/synthetic-{}-{}-{}-{}.pkl'.format(
             experiment, setting, seed, n_train)
 
-        if os.path.isfile(dataset_file):
+        if os.path.isfile(dataset_file) and not recompute_dataset:
             with open(dataset_file, 'rb') as f:
                 raw_train_sequences, raw_test_sequences = \
                     pickle.load(f)
