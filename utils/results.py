@@ -136,17 +136,6 @@ def plot_timeseries(experiment, baseline, seed=0, index=None,
         plt.savefig('{}.png'.format(figure_name), bbox_inches='tight', dpi=600)
     plt.show()
 
-# Independent coverage
-# for baseline in ['CFRNN_normalised']:
-#     print(baseline)
-#     for seed in range(1):
-#         results = load_synthetic_results(experiment='time_dependent', baseline=baseline, seed=seed)
-#         for result in results: # for each setting
-#             independent_coverages = result['Mean independent coverage']
-#             print(independent_coverages)
-#             print('[{:.1f}\\%, {:.1f}\\%]'.format(independent_coverages.min() * 100, independent_coverages.max() * 100))
-#     print()
-
 
 def plot_sample_complexity(seed=0, figure_name=None):
     coverages_mean, coverages_std = {}, {}
