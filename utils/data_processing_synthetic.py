@@ -107,7 +107,7 @@ def split_train_sequence(X_full, horizon):
             Y.append(seq[-horizon:])
         elif seq_len > horizon:
             X.append(seq[:seq_len - horizon])
-            Y.append(seq[-(seq_len - horizon):])
+            Y.append(seq[(seq_len - horizon):])
 
     return X, Y
 
