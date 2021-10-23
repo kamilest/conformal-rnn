@@ -212,7 +212,7 @@ class CFRNN:
             embedding_size: size of the embedding of the underlying point
                 forecaster
             input_size: dimensionality of observed time-series
-            output_size: dimensionality of the forecast
+            output_size: dimensionality of a forecast step
             horizon: forecasting horizon (number of steps into the future)
             error_rate: controls the error rate for the joint coverage in the
                 estimated uncertainty intervals
