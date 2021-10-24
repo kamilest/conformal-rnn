@@ -51,7 +51,7 @@ TIMESERIES_LENGTHS = {'mimic': 47,  # 49 - horizon
 
 
 def run_medical_experiments(dataset, baseline,
-                            params=None, correct_conformal=True,
+                            params=None,
                             save_model=False, save_results=True,
                             seed=0):
     assert baseline in BASELINES.keys(), 'Invalid baselines'
@@ -85,8 +85,7 @@ def run_medical_experiments(dataset, baseline,
                   epochs=params['epochs'], lr=params['lr'],
                   batch_size=params['batch_size'],)
 
-        results = evaluate_cfrnn_performance(model, test_dataset,
-                                             correct_conformal)
+        results = evaluate_cfrnn_performance(model, test_dataset)
     else:
         train_dataset, _, test_dataset = \
             split_fn(conformal=False, horizon=horizon, seed=seed)
@@ -102,22 +101,32 @@ def run_medical_experiments(dataset, baseline,
         torch.save(model, 'saved_models/{}-{}-{}.pt'
                    .format(dataset, baseline, seed))
     if save_results:
-        corr = '-uncorrected' if (baseline in CONFORMAL_BASELINES
-                                  and not correct_conformal) else ''
-        with open('saved_results/{}-{}-{}{}.pkl'.format(dataset,
+        with open('saved_results/{}-{}-{}.pkl'.format(dataset,
                                                         baseline,
-                                                        seed, corr),
+                                                        seed),
                   'wb') as f:
             pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     return results
 
 
-def load_medical_results(dataset, baseline, seed, correct_conformal=True):
-    corr = '-uncorrected' if (baseline in CONFORMAL_BASELINES
-                              and not correct_conformal) else ''
-    with open('saved_results/{}-{}-{}{}.pkl'.format(dataset, baseline, seed,
-                                                    corr),
+def get_uncorrected_medical_results(dataset, seed):
+    with open('saved_models/{}-{}-{}.pt'.format(dataset, 'CFRNN', seed),
+              'rb') as f:
+        model = torch.load(f)
+
+    split_fn = DATASET_SPLIT_FUNCTIONS[dataset]
+    horizon = HORIZON_LENGTHS[dataset]
+    _, _, test_dataset = \
+        split_fn(conformal=True, horizon=horizon, seed=seed)
+
+    results = evaluate_cfrnn_performance(model, test_dataset,
+                                         correct_conformal=False)
+    return results
+
+
+def load_medical_results(dataset, baseline, seed):
+    with open('saved_results/{}-{}-{}.pkl'.format(dataset, baseline, seed),
               'rb') as f:
         results = pickle.load(f)
     return results

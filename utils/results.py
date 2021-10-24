@@ -5,7 +5,8 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 from utils.data_processing_synthetic import EXPERIMENT_MODES
-from utils.train_medical import load_medical_results
+from utils.train_medical import load_medical_results, CONFORMAL_BASELINES, \
+    get_uncorrected_medical_results
 from utils.train_synthetic import load_synthetic_results
 
 
@@ -32,9 +33,11 @@ def get_joint_medical_coverages(baseline, dataset, seeds=None,
         seeds = list(range(5))
     coverages = []
     for seed in seeds:
-        result = load_medical_results(dataset=dataset,
-                                      baseline=baseline, seed=seed,
-                                      correct_conformal=correct_conformal)
+        if baseline == 'CFRNN' and not correct_conformal:
+            result = get_uncorrected_medical_results(dataset, seed)
+        else:
+            result = load_medical_results(dataset=dataset,
+                                          baseline=baseline, seed=seed)
         coverages.append(result['Mean joint coverage'] * 100)
     coverages = np.array(coverages)
     return coverages.mean(axis=0), coverages.std(axis=0)
@@ -63,13 +66,17 @@ def get_interval_widths(baseline, experiment, seeds=None):
     return widths.mean(axis=(0, 2)), widths.std(axis=(0, 2))
 
 
-def get_medical_interval_widths(baseline, dataset, seeds=None):
+def get_medical_interval_widths(baseline, dataset, seeds=None,
+                                correct_conformal=True):
     if seeds is None:
         seeds = list(range(5))
     widths = []
     for seed in seeds:
-        result = load_medical_results(dataset=dataset,
-                                      baseline=baseline, seed=seed)
+        if baseline == 'CFRNN' and not correct_conformal:
+            result = get_uncorrected_medical_results(dataset, seed)
+        else:
+            result = load_medical_results(dataset=dataset,
+                                          baseline=baseline, seed=seed)
         # [1 x horizon] for a single dataset setting
         width = result['Mean confidence interval widths'].tolist()
         widths.append(width)
