@@ -1,3 +1,6 @@
+# Copyright (c) 2021, Kamilė Stankevičiūtė
+# Licensed under the BSD 3-clause license
+
 import pickle
 
 import numpy as np

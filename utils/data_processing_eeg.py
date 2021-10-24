@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors
+# Copyright (c) 2021, Kamilė Stankevičiūtė
 # Licensed under the BSD 3-clause license
 
 import gzip

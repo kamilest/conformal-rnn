@@ -1,5 +1,7 @@
-# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors, Ahmed M. Alaa
+# Copyright (c) 2021, Kamilė Stankevičiūtė
+# Adapted from Ahmed M. Alaa github.com/ahmedmalaa/rnn-blockwise-jackknife
 # Licensed under the BSD 3-clause license
+
 import os.path
 import pickle
 
