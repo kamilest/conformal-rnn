@@ -4,8 +4,10 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 
-from utils.train_synthetic import load_synthetic_results
 from utils.data_processing_synthetic import EXPERIMENT_MODES
+from utils.train_medical import load_medical_results, CONFORMAL_BASELINES, \
+    get_uncorrected_medical_results
+from utils.train_synthetic import load_synthetic_results
 
 
 def get_joint_coverages(baseline, experiment, seeds=None):
@@ -25,11 +27,29 @@ def get_joint_coverages(baseline, experiment, seeds=None):
     return coverages.mean(axis=0), coverages.std(axis=0)
 
 
-def get_interval_widths(baseline, experiment, seeds=range(5)):
+def get_joint_medical_coverages(baseline, dataset, seeds=None,
+                                correct_conformal=True):
+    if seeds is None:
+        seeds = list(range(5))
+    coverages = []
+    for seed in seeds:
+        if baseline == 'CFRNN' and not correct_conformal:
+            result = get_uncorrected_medical_results(dataset, seed)
+        else:
+            result = load_medical_results(dataset=dataset,
+                                          baseline=baseline, seed=seed)
+        coverages.append(result['Mean joint coverage'] * 100)
+    coverages = np.array(coverages)
+    return coverages.mean(axis=0), coverages.std(axis=0)
+
+
+def get_interval_widths(baseline, experiment, seeds=None):
     """ Returns interval widths (mean±std over seeds) across the horizon for
     every dataset setting. """
 
     # seeds x settings x horizon
+    if seeds is None:
+        seeds = list(range(5))
     widths = []
     for seed in seeds:
         results = load_synthetic_results(experiment=experiment,
@@ -42,12 +62,33 @@ def get_interval_widths(baseline, experiment, seeds=range(5)):
         widths.append(dataset_widths)
 
     widths = np.array(widths)
-    return widths.mean(axis=0), widths.std(axis=0)
+    # datasets (average the horizons and seeds)
+    return widths.mean(axis=(0, 2)), widths.std(axis=(0, 2))
+
+
+def get_medical_interval_widths(baseline, dataset, seeds=None,
+                                correct_conformal=True):
+    if seeds is None:
+        seeds = list(range(5))
+    widths = []
+    for seed in seeds:
+        if baseline == 'CFRNN' and not correct_conformal:
+            result = get_uncorrected_medical_results(dataset, seed)
+        else:
+            result = load_medical_results(dataset=dataset,
+                                          baseline=baseline, seed=seed)
+        # [1 x horizon] for a single dataset setting
+        width = result['Mean confidence interval widths'].tolist()
+        widths.append(width)
+
+    widths = np.array(widths)
+    # datasets (average the horizons and seeds)
+    return widths.mean(), widths.std()
 
 
 def plot_timeseries(experiment, baseline, seed=0, index=None,
-                    forecast_only=False, figsize=(28, 4), figure_name=None):
-
+                    forecast_only=False, figsize=(28, 4), figure_name=None,
+                    n_samples=2000):
     assert experiment in EXPERIMENT_MODES.keys()
 
     plt.rcParams.update({
@@ -59,9 +100,9 @@ def plot_timeseries(experiment, baseline, seed=0, index=None,
 
     datasets = []
     for i in EXPERIMENT_MODES[experiment]:
-        with open('processed_data/synthetic-{}-{}-{}.pkl'.format(experiment, i,
-                                                                 seed),
-                  'rb') as f:
+        with open('processed_data/synthetic-{}-{}-{}-{}.pkl'.format(
+                experiment, i, seed, n_samples),
+                'rb') as f:
             datasets.append(pickle.load(f))
 
     with open('saved_results/{}-{}-{}.pkl'.format(experiment, baseline, seed),
@@ -129,32 +170,32 @@ def plot_timeseries(experiment, baseline, seed=0, index=None,
                         hspace=0.4)
 
     if figure_name is not None:
-        plt.savefig('{}.png'.format(figure_name), bbox_inches='tight')
+        plt.savefig('{}.png'.format(figure_name), bbox_inches='tight', dpi=600)
     plt.show()
-
-# Independent coverage
-# for baseline in ['CFRNN_normalised']:
-#     print(baseline)
-#     for seed in range(1):
-#         results = load_synthetic_results(experiment='time_dependent', baseline=baseline, seed=seed)
-#         for result in results: # for each setting
-#             independent_coverages = result['Mean independent coverage']
-#             print(independent_coverages)
-#             print('[{:.1f}\\%, {:.1f}\\%]'.format(independent_coverages.min() * 100, independent_coverages.max() * 100))
-#     print()
 
 
 def plot_sample_complexity(seed=0, figure_name=None):
     coverages_mean, coverages_std = {}, {}
     for baseline in ['QRNN', 'DPRNN', 'CFRNN']:
-        # TODO error bars for seeds
         coverages_mean[baseline], coverages_std[baseline] = \
             get_joint_coverages(baseline, 'sample_complexity', seeds=[seed])
 
-    fig = sns.lineplot(data=coverages_mean)
-    fig.axhline(90, linestyle="--", color="black")
-    fig.set(xlabel="log(Training dataset size)", ylabel="Joint coverage, %")
-    plt.show()
+    widths_mean = {}
+    for baseline in ['QRNN', 'DPRNN', 'CFRNN']:
+        widths_mean[baseline] = \
+            get_interval_widths(baseline, 'sample_complexity', seeds=[seed])[
+                0].mean(axis=1)
+
+    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(12, 3))
+
+    figa = sns.lineplot(ax=ax1, data=coverages_mean, legend=None)
+    figa.axhline(90, linestyle="--", color="black")
+    figa.set(xlabel="log(Training dataset size)", ylabel="Joint coverage, %")
+
+    figb = sns.lineplot(ax=ax2, data=widths_mean)
+    figb.set(xlabel="log(Training dataset size)",
+             ylabel="Average interval width")
 
     if figure_name is not None:
-        plt.savefig('{}.png'.format(figure_name), bbox_inches='tight')
+        plt.savefig('{}.png'.format(figure_name), bbox_inches='tight', dpi=600)
+    plt.show()

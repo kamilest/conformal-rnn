@@ -1,9 +1,9 @@
-# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors, Ahmed M. Alaa
+# Copyright (c) 2021, Kamilė Stankevičiūtė
+# Adapted from Ahmed M. Alaa github.com/ahmedmalaa/rnn-blockwise-jackknife
 # Licensed under the BSD 3-clause license
 
 import numpy as np
 import torch
-from torch import nn
 from torch.autograd import Variable
 
 from models.losses import quantile_loss
@@ -12,7 +12,7 @@ from utils.data_padding import padd_arrays, unpadd_arrays
 torch.manual_seed(1)
 
 
-class QRNN(nn.Module):
+class QRNN(torch.nn.Module):
     def __init__(self, rnn_mode="LSTM", epochs=5, batch_size=150, max_steps=50,
                  input_size=1, lr=0.01, output_size=1, embedding_size=20,
                  n_layers=1, n_steps=50, alpha=0.05, **kwargs):
@@ -31,22 +31,22 @@ class QRNN(nn.Module):
         self.q = alpha
         self.rnn_mode = rnn_mode
 
-        rnn_dict = {"RNN": nn.RNN(input_size=self.INPUT_SIZE,
-                                  hidden_size=self.HIDDEN_UNITS,
-                                  num_layers=self.NUM_LAYERS,
-                                  batch_first=True, ),
-                    "LSTM": nn.LSTM(input_size=self.INPUT_SIZE,
-                                    hidden_size=self.HIDDEN_UNITS,
-                                    num_layers=self.NUM_LAYERS,
-                                    batch_first=True, ),
-                    "GRU": nn.GRU(input_size=self.INPUT_SIZE,
-                                  hidden_size=self.HIDDEN_UNITS,
-                                  num_layers=self.NUM_LAYERS,
-                                  batch_first=True, )
+        rnn_dict = {"RNN": torch.nn.RNN(input_size=self.INPUT_SIZE,
+                                        hidden_size=self.HIDDEN_UNITS,
+                                        num_layers=self.NUM_LAYERS,
+                                        batch_first=True, ),
+                    "LSTM": torch.nn.LSTM(input_size=self.INPUT_SIZE,
+                                          hidden_size=self.HIDDEN_UNITS,
+                                          num_layers=self.NUM_LAYERS,
+                                          batch_first=True, ),
+                    "GRU": torch.nn.GRU(input_size=self.INPUT_SIZE,
+                                        hidden_size=self.HIDDEN_UNITS,
+                                        num_layers=self.NUM_LAYERS,
+                                        batch_first=True, )
                     }
 
         self.rnn = rnn_dict[self.rnn_mode]
-        self.out = nn.Linear(self.HIDDEN_UNITS, 2 * self.OUTPUT_SIZE)
+        self.out = torch.nn.Linear(self.HIDDEN_UNITS, 2 * self.OUTPUT_SIZE)
 
     def forward(self, x):
         # x shape (batch, time_step, input_size)

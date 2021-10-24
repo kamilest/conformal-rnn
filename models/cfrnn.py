@@ -1,5 +1,7 @@
-# Copyright (c) 2021, NeurIPS 2021 Paper6977 Authors
+# Copyright (c) 2021, Kamilė Stankevičiūtė
 # Licensed under the BSD 3-clause license
+
+""" CFRNN model. """
 
 import os.path
 
@@ -8,11 +10,15 @@ import torch
 
 def coverage(intervals, target):
     """
-    Determines whether intervals cover the target prediction.
-    Depending on the coverage_mode (either 'joint' or 'independent), will return
-    either a list of whether each target or all targets satisfy the coverage.
+    Determines whether intervals cover the target prediction
+    considering each target horizon either separately or jointly.
 
-    intervals: shape [batch_size, 2, horizon, n_outputs]
+    Args:
+        intervals: shape [batch_size, 2, horizon, n_outputs]
+        target: ground truth forecast values
+
+    Returns:
+        individual and joint coverage rates
     """
 
     lower, upper = intervals[:, 0], intervals[:, 1]
@@ -23,6 +29,18 @@ def coverage(intervals, target):
 
 
 def get_critical_scores(calibration_scores, q):
+    """
+    Computes critical calibration scores from scores in the calibration set.
+
+    Args:
+        calibration_scores: calibration scores for each example in the
+            calibration set.
+        q: target quantile for which to return the calibration score
+
+    Returns:
+        critical calibration scores for each target horizon
+    """
+
     return torch.tensor([[torch.quantile(
         position_calibration_scores,
         q=q)
@@ -31,8 +49,14 @@ def get_critical_scores(calibration_scores, q):
 
 
 def get_lengths_mask(sequences, lengths, horizon):
-    """Returns the lengths mask indicating the positions where every
-    sequences in the batch are valid."""
+    """
+    Returns the mask indicating which positions in the sequence are valid.
+
+    Args:
+        sequences: (batch of) input sequences
+        lengths: the lengths of every sequence in the batch
+        horizon: the forecasting horizon
+    """
 
     lengths_mask = torch.zeros(sequences.size(0), horizon,
                                sequences.size(2))
@@ -43,8 +67,28 @@ def get_lengths_mask(sequences, lengths, horizon):
 
 
 class AuxiliaryForecaster(torch.nn.Module):
+    """
+    The auxiliary RNN issuing point predictions.
+
+    Point predictions are used as baseline to which the (normalised)
+    uncertainty intervals are added in the main CFRNN network.
+    """
+
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  rnn_mode='LSTM', path=None):
+        """
+        Initialises the auxiliary forecaster.
+
+        Args:
+            embedding_size: hyperparameter indicating the size of the latent
+                RNN embeddings.
+            input_size: dimensionality of the input time-series
+            output_size: dimensionality of the forecast
+            horizon: forecasting horizon
+            rnn_mode: type of the underlying RNN network
+            path: optional path where to save the auxiliary model to be used
+                in the main CFRNN network
+        """
         super(AuxiliaryForecaster, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
@@ -89,6 +133,15 @@ class AuxiliaryForecaster(torch.nn.Module):
         return out, (h_n, c_n)
 
     def fit(self, train_dataset, batch_size, epochs, lr):
+        """
+        Trains the auxiliary forecaster to the training dataset.
+
+        Args:
+            train_dataset: a dataset of type `torch.utils.data.Dataset`
+            batch_size: batch size
+            epochs: number of training epochs
+            lr: learning rate
+        """
         train_loader = torch.utils.data.DataLoader(train_dataset,
                                                    batch_size=batch_size,
                                                    shuffle=True)
@@ -124,9 +177,50 @@ class AuxiliaryForecaster(torch.nn.Module):
 
 
 class CFRNN:
+    """
+    The basic CFRNN model as presented in Algorithm 1 of the accompanying paper.
+
+    CFRNN training procedure entails training the underlying (auxiliary) model
+    on the training dataset (which is implemented as part of
+    `AuxiliaryForecaster`), and calibrating the predictions of the auxiliary
+    forecaster against the calibration dataset.
+
+    The calibration is done by computing the empirical distribution of
+    nonconformity scores (implemented via the `nonconformity`
+    function), via the `calibrate` method.
+
+    The AuxiliaryForecaster can be fit to the dataset from scratch, or,
+    if the model path is provided, the model is loaded directly, its training is
+    skipped and only the calibration procedure is carried out.
+
+    Additional methods are provided for returning predictions: on the test
+    example, the point prediction is done by the underlying
+    `AuxiliaryForecaster`, and the horizon-specific critical calibration scores
+    (obtained from the calibration procedure) are added to the point forecast to
+    obtain the resulting interval. The coverage can be further evaluated by
+    comparing the uncertainty intervals to the ground truth forecasts,
+    returning joint and independent coverages and getting the errors from the
+    point prediction.
+    """
+
     def __init__(self, embedding_size, input_size=1, output_size=1, horizon=1,
                  error_rate=0.05, rnn_mode='LSTM',
-                 auxiliary_forecaster_path=None, **kwargs):
+                 auxiliary_forecaster_path=None,
+                 **kwargs):
+        """
+        Args:
+            embedding_size: size of the embedding of the underlying point
+                forecaster
+            input_size: dimensionality of observed time-series
+            output_size: dimensionality of a forecast step
+            horizon: forecasting horizon (number of steps into the future)
+            error_rate: controls the error rate for the joint coverage in the
+                estimated uncertainty intervals
+            rnn_mode: type of the underlying AuxiliaryForecaster model
+            auxiliary_forecaster_path: training of the underlying
+                `AuxiliaryForecaster` can be skipped if the path for the
+                already trained `AuxiliaryForecaster` is provided.
+        """
         super(CFRNN, self).__init__()
         # input_size indicates the number of features in the time series
         # input_size=1 for univariate series.
@@ -156,12 +250,24 @@ class CFRNN:
         self.corrected_critical_calibration_scores = None
 
     def nonconformity(self, output, calibration_example):
-        """Measures the nonconformity between output and target time series."""
+        """
+        Measures the nonconformity between output and target time series.
+
+        Args:
+            output: the point prediction given by the auxiliary forecasting
+                model
+            calibration_example: the tuple consisting of calibration
+                example's input sequence, ground truth forecast, and sequence
+                length
+
+        Returns:
+            Average MAE loss for every step in the sequence.
+        """
         # Average MAE loss for every step in the sequence.
         target = calibration_example[1]
         return torch.nn.functional.l1_loss(output, target, reduction='none')
 
-    def calibrate(self, calibration_dataset):
+    def calibrate(self, calibration_dataset: torch.utils.data.Dataset):
         """
         Computes the nonconformity scores for the calibration dataset.
         """
@@ -197,8 +303,29 @@ class CFRNN:
             calibration_scores=self.calibration_scores,
             q=corrected_q)
 
-    def fit(self, train_dataset, calibration_dataset, epochs, lr,
+    def fit(self, train_dataset: torch.utils.data.Dataset,
+            calibration_dataset: torch.utils.data.Dataset, epochs, lr,
             batch_size=32, **kwargs):
+        """
+        Fits the CFRNN model.
+
+        If the auxiliary forecaster is not trained, fits the underlying
+        `AuxiliaryForecaster` on the training dataset using the batch size,
+        learning rate and number of epochs provided. Otherwise, the auxiliary
+        forecaster that has been loaded on initialisation is used. On fitting
+        the underlying model, computes calibration scores for the calibration
+        dataset.
+
+        Args:
+            train_dataset: training dataset on which the underlying
+            forecasting model is trained
+            calibration_dataset: calibration dataset used to compute the
+            empirical nonconformity score distribution
+            epochs: number of epochs for training the underlying forecaster
+            lr: learning rate for training the underlying forecaster
+            batch_size: batch size for training the underlying forecaster
+        """
+
         if self.requires_auxiliary_fit:
             # Train the multi-horizon forecaster.
             self.auxiliary_forecaster.fit(train_dataset, batch_size, epochs, lr)
@@ -207,7 +334,18 @@ class CFRNN:
         self.calibrate(calibration_dataset)
 
     def predict(self, x, state=None, corrected=True):
-        """Forecasts the time series with conformal uncertainty intervals."""
+        """
+        Forecasts the time series with conformal uncertainty intervals.
+
+        Args:
+            x: time-series to be forecasted
+            state: initial state for the underlying auxiliary forecaster RNN
+            corrected: whether to use Bonferroni-corrected calibration scores
+
+        Returns:
+            tensor with lower and upper forecast bounds; hidden RNN state
+        """
+
         out, hidden = self.auxiliary_forecaster(x, state)
 
         if not corrected:
@@ -222,7 +360,18 @@ class CFRNN:
         # [batch_size, 2, horizon, n_outputs]
         return torch.stack((lower, upper), dim=1), hidden
 
-    def evaluate_coverage(self, test_dataset, corrected=True):
+    def evaluate_coverage(self, test_dataset: torch.utils.data.Dataset,
+                          corrected=True):
+        """
+        Evaluates coverage of the examples in the test dataset.
+
+        Args:
+            test_dataset: test dataset
+            corrected: whether to use the Bonferroni-corrected critical
+            calibration scores
+        Returns:
+            independent and joint coverages, forecast uncertainty intervals
+        """
         self.auxiliary_forecaster.eval()
 
         independent_coverages, joint_coverages, intervals = [], [], []
@@ -245,7 +394,22 @@ class CFRNN:
 
         return independent_coverages, joint_coverages, intervals
 
-    def get_point_predictions_and_errors(self, test_dataset, corrected=True):
+    def get_point_predictions_and_errors(self,
+                                         test_dataset: torch.utils.data.Dataset,
+                                         corrected=True):
+        """
+        Obtains point predictions of the examples in the test dataset.
+
+        Obtained by running the Auxiliary forecaster and adding the
+        calibrated uncertainty intervals.
+
+        Args:
+            test_dataset: test dataset
+            corrected: whetehr to use Bonferroni-corrected calibration scores
+
+        Returns:
+            point predictions and their MAE compared to ground truth
+        """
         self.auxiliary_forecaster.eval()
 
         point_predictions = []
@@ -304,7 +468,6 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         criterion = torch.nn.MSELoss()
 
-        # TODO early stopping based on validation loss of the calibration set
         for epoch in range(epochs):
             train_loss = 0.
 
@@ -345,7 +508,7 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
     def fit(self, train_dataset, calibration_dataset, epochs, lr,
             normaliser_epochs=500,
             batch_size=32):
-        if self.auxiliary_forecaster_path is None:
+        if self.requires_auxiliary_fit:
             # Train the multi-horizon forecaster.
             self.auxiliary_forecaster.fit(train_dataset, batch_size, epochs, lr)
 
@@ -364,7 +527,6 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
         score = self.score(x, len(x))
         if not corrected:
             # [batch_size, horizon, n_outputs]
-            # TODO make sure len(x) is correct
             lower = out - self.critical_calibration_scores * score
             upper = out + self.critical_calibration_scores * score
 

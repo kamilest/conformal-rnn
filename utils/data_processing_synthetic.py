@@ -18,7 +18,7 @@ EXPERIMENT_MODES = {
     'periodic': [2, 10],
     'time_dependent': range(1, 6),
     'static': range(1, 6),
-    'sample_complexity': [10, 100, 1000, 10000, 100000]
+    'sample_complexity': [10, 100, 1000, 10000]
 }
 
 DEFAULT_PARAMETERS = {
@@ -107,7 +107,7 @@ def split_train_sequence(X_full, horizon):
             Y.append(seq[-horizon:])
         elif seq_len > horizon:
             X.append(seq[:seq_len - horizon])
-            Y.append(seq[-(seq_len - horizon):])
+            Y.append(seq[(seq_len - horizon):])
 
     return X, Y
 
@@ -180,10 +180,10 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
                              asynchronous=dynamic_sequence_lengths)
                     for sl in sequence_lengths]
     else:
-        periodic = np.array([np.zeros(sl) for sl in sequence_lengths]) \
-            .reshape(-1, 1)
+        periodic = np.array([np.zeros(sl) for sl in sequence_lengths])
 
-    X_full = [torch.tensor(i + j + k) for i, j, k in zip(ar, noise, periodic)]
+    X_full = [torch.tensor(i + j + k.reshape(-1, 1))
+              for i, j, k in zip(ar, noise, periodic)]
 
     # Splitting time series into training sequence X and target sequence Y;
     # Y stores the time series predicted targets `horizon` steps away
@@ -193,12 +193,16 @@ def generate_autoregressive_forecast_dataset(n_samples, experiment, setting,
     return X, Y, train_sequence_lengths
 
 
-def get_raw_sequences(experiment, dynamic_sequence_lengths=False, horizon=None,
+def get_raw_sequences(experiment, n_train=None, n_test=None,
+                      dynamic_sequence_lengths=False, horizon=None,
+                      recompute_dataset=False,
                       seed=0):
     assert experiment in EXPERIMENT_MODES.keys()
 
-    n_train = 2000
-    n_test = 500
+    if n_train is None:
+        n_train = 2000
+    if n_test is None:
+        n_test = 500
 
     raw_sequences = []
     random_state = np.random.RandomState(seed)
@@ -206,10 +210,15 @@ def get_raw_sequences(experiment, dynamic_sequence_lengths=False, horizon=None,
     for setting in EXPERIMENT_MODES[experiment]:
         if experiment == 'sample_complexity':
             n_train = setting
-        dataset_file = 'processed_data/synthetic-{}-{}-{}.pkl'.format(
-            experiment, setting, seed)
+        dataset_file = 'processed_data/synthetic-{}-{}-{}-{}{}{}.pkl'.format(
+            experiment, setting, seed, n_train, ('-dynamic' if
+                                                 dynamic_sequence_lengths
+                                                 else ''),
+            ('-horizon{}'.format(horizon) if horizon is not None and
+                                             horizon != DEFAULT_PARAMETERS[
+                                                 'horizon'] else ''))
 
-        if os.path.isfile(dataset_file):
+        if os.path.isfile(dataset_file) and not recompute_dataset:
             with open(dataset_file, 'rb') as f:
                 raw_train_sequences, raw_test_sequences = \
                     pickle.load(f)
