@@ -1,9 +1,0 @@
-matplotlib~=3.3.4
-numpy~=1.19.2
-scipy~=1.5.2
-seaborn=0.11.1
-scikit-learn~=0.24.1
-pandas~=1.2.1
-torchvision=0.2.1=py_2
-jupyter=1.0.0=py37_7
-seaborn~=0.11.1
