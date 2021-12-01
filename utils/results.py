@@ -9,7 +9,6 @@ from matplotlib import pyplot as plt
 
 from utils.data_processing_synthetic import EXPERIMENT_MODES
 from utils.train_medical import (
-    CONFORMAL_BASELINES,
     get_uncorrected_medical_results,
     load_medical_results,
 )

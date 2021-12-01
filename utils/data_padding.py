@@ -1,8 +1,6 @@
 # Copyright (c) 2020, Ahmed M. Alaa
 # Licensed under the BSD 3-clause license
 
-from __future__ import absolute_import, division, print_function
-
 import sys
 
 import numpy as np

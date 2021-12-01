@@ -5,26 +5,15 @@
 # Code for influence functions computation in Pytorch
 # ---------------------------------------------------------
 
-from __future__ import absolute_import, division, print_function
-
 import warnings
 
 import numpy as np
-import pandas as pd
-
-warnings.simplefilter("ignore")
 
 import torch
-import torch.nn.functional as nnf
-import torchvision as torchv
-import torchvision.transforms as torchvt
-from torch import nn
-from torch.autograd import Variable
-from torch.distributions import constraints
-from torch.optim import SGD
-from torch.utils.data import random_split
 
-from influence.influence_utils import *
+from influence.influence_utils import stack_torch_tensors, hessian_vector_product, exact_hessian_ij, exact_hessian
+
+warnings.simplefilter("ignore")
 
 
 def influence_function(

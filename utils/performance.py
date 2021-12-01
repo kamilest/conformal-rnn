@@ -6,12 +6,12 @@
 # Helper functions and utilities for deep learning models
 # ---------------------------------------------------------
 
-import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
 from models.bjrnn import RNN_uncertainty_wrapper
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
-from utils.data_processing_synthetic import *
 
 
 def evaluate_cfrnn_performance(model, test_dataset, correct_conformal=True):
