@@ -53,7 +53,8 @@ def process_mimic_data(feature="wbchigh"):
         "wbclow",
         "antibiotics",
         "norepinephrine",
-        "mechanical_ventilator" "age",
+        "mechanical_ventilator",
+        "age",
         "weight",
     ]
 

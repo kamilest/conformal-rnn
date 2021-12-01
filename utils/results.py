@@ -8,10 +8,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 from utils.data_processing_synthetic import EXPERIMENT_MODES
-from utils.train_medical import (
-    get_uncorrected_medical_results,
-    load_medical_results,
-)
+from utils.train_medical import get_uncorrected_medical_results, load_medical_results
 from utils.train_synthetic import load_synthetic_results
 
 
@@ -144,7 +141,9 @@ def plot_timeseries(
             ax.set(ylabel="Prediction")
         ax.set(xlabel="Time step")
         if experiment == "time_dependent":
-            ax.set(title="$\sigma_t^2 =${:.1f}$t$".format((j + 1) * 0.1))
+            ax.set(
+                title="$\sigma_t^2 =${:.1f}$t$".format((j + 1) * 0.1)  # pylint: disable=anomalous-backslash-in-string
+            )
 
     plt.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.9, wspace=0.1, hspace=0.4)
 

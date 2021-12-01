@@ -34,7 +34,9 @@ def get_raw_covid_data(cached=True):
         df = pd.read_csv("data/ltla_2021-05-24.csv")
         for area_code in df["areaCode"].unique():
             dataset.append(
-                df.loc[df["areaCode"] == area_code].sort_values("date")["newCasesByPublishDate"].to_numpy()[-250:-100]
+                df.loc[df["areaCode"] == area_code]  # pylint: disable=unsubscriptable-object
+                .sort_values("date")["newCasesByPublishDate"]
+                .to_numpy()[-250:-100]
             )
         dataset = np.array(dataset)
         with open("data/covid.pkl", "wb") as f:

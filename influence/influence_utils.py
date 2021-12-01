@@ -64,15 +64,16 @@ def hessian_vector_product(loss, model, v):
     """
     Multiplies the Hessians of the loss of a model with respect to its parameters by a vector v.
     Adapted from: https://github.com/kohpangwei/influence-release
-    
+
     This function uses a backproplike approach to compute the product between the Hessian
-    and another vector efficiently, which even works for large Hessians with O(p) compelxity for p parameters.
-    
+    and another vector efficiently, which even works for large Hessians with O(p) complexity for p parameters.
+
     Arguments:
         loss: scalar/tensor, for example the output of the loss function
-        rnn: the model for which the Hessian of the loss is evaluated 
+        rnn: the model for which the Hessian of the loss is evaluated
         v: list of torch tensors, rnn.parameters(),
             will be multiplied with the Hessian
+
     Returns:
         return_grads: list of torch tensors, contains product of Hessian and v.
     """
@@ -85,9 +86,8 @@ def hessian_vector_product(loss, model, v):
     """
     # Elementwise products
     elemwise_products = 0
-    
+
     for grad_elem, v_elem in zip(first_grads, v):
-        
         elemwise_products += torch.sum(grad_elem * v_elem)
     """
 
@@ -103,14 +103,14 @@ def hessian_vector_product(loss, model, v):
 
 def perturb_model_(model, perturb):
     """
-    Perturbs the parameters of a model by a given vector of influences 
-    
+    Perturbs the parameters of a model by a given vector of influences
+
     Arguments:
         model: a pytorch model with p parameters
         perturb: a tensors with size p designating the desired parameter-wise perturbation
 
     Returns:
-        perturbed_model : a copy of the original model with perturbed parameters 
+        perturbed_model : a copy of the original model with perturbed parameters
     """
 
     params = []

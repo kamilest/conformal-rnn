@@ -397,7 +397,7 @@ class CFRNN:
 
         Args:
             test_dataset: test dataset
-            corrected: whetehr to use Bonferroni-corrected calibration scores
+            corrected: whether to use Bonferroni-corrected calibration scores
 
         Returns:
             point predictions and their MAE compared to ground truth
@@ -494,7 +494,9 @@ class AdaptiveCFRNN(CFRNN, torch.nn.Module):
         normalised_score = score / self.score(sequence, length)
         return normalised_score
 
-    def fit(self, train_dataset, calibration_dataset, epochs, lr, normaliser_epochs=500, batch_size=32):
+    def fit(
+        self, train_dataset, calibration_dataset, epochs, lr, normaliser_epochs=500, batch_size=32
+    ):  # pylint: disable=arguments-differ
         if self.requires_auxiliary_fit:
             # Train the multi-horizon forecaster.
             self.auxiliary_forecaster.fit(train_dataset, batch_size, epochs, lr)

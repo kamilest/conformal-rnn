@@ -8,10 +8,14 @@
 import warnings
 
 import numpy as np
-
 import torch
 
-from influence.influence_utils import stack_torch_tensors, hessian_vector_product, exact_hessian_ij, exact_hessian
+from influence.influence_utils import (
+    exact_hessian,
+    exact_hessian_ij,
+    hessian_vector_product,
+    stack_torch_tensors,
+)
 
 warnings.simplefilter("ignore")
 
@@ -19,10 +23,9 @@ warnings.simplefilter("ignore")
 def influence_function(
     model, train_index, W=None, mode="stochastic", batch_size=100, damp=1e-3, scale=1000, order=1, recursion_depth=1000
 ):
-
     """
     Computes the influence function defined as H^-1 dLoss/d theta. This is the impact that each
-    training data point has on the learned model parameters. 
+    training data point has on the learned model parameters.
     """
 
     if mode == "stochastic":
@@ -37,21 +40,20 @@ def influence_function(
 
 
 def influence_stochastic_estimation(model, train_index, batch_size=100, damp=1e-3, scale=1000, recursion_depth=1000):
-
     """
     This function applies the stochastic estimation approach to evaluating influence function based on the power-series
     approximation of matrix inversion. Recall that the exact inverse Hessian H^-1 can be computed as follows:
 
-    H^-1 = \sum^\infty_{i=0} (I - H) ^ j
+    H^-1 = \\sum^\\infty_{i=0} (I - H) ^ j
 
-    This series converges if all the eigen values of H are less than 1. 
-    
-    
+    This series converges if all the eigen values of H are less than 1.
+
     Arguments:
         loss: scalar/tensor, for example the output of the loss function
-        rnn: the model for which the Hessian of the loss is evaluated 
+        rnn: the model for which the Hessian of the loss is evaluated
         v: list of torch tensors, rnn.parameters(),
             will be multiplied with the Hessian
+
     Returns:
         return_grads: list of torch tensors, contains product of Hessian and v.
     """
