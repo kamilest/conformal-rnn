@@ -15,9 +15,21 @@ torch.manual_seed(1)
 
 
 class DPRNN(nn.Module):
-    def __init__(self, rnn_mode="LSTM", epochs=5, batch_size=150, max_steps=50,
-                 input_size=1, lr=0.01, output_size=1, embedding_size=20,
-                 n_layers=1, n_steps=50, dropout_prob=0.5, **kwargs):
+    def __init__(
+        self,
+        rnn_mode="LSTM",
+        epochs=5,
+        batch_size=150,
+        max_steps=50,
+        input_size=1,
+        lr=0.01,
+        output_size=1,
+        embedding_size=20,
+        n_layers=1,
+        n_steps=50,
+        dropout_prob=0.5,
+        **kwargs
+    ):
 
         super(DPRNN, self).__init__()
 
@@ -35,20 +47,29 @@ class DPRNN(nn.Module):
         self.dropout_prob = dropout_prob
         self.dropout = nn.Dropout(p=dropout_prob)
 
-        rnn_dict = {"RNN": nn.RNN(input_size=self.INPUT_SIZE,
-                                  hidden_size=self.HIDDEN_UNITS,
-                                  num_layers=self.NUM_LAYERS, batch_first=True,
-                                  dropout=self.dropout_prob, ),
-                    "LSTM": nn.LSTM(input_size=self.INPUT_SIZE,
-                                    hidden_size=self.HIDDEN_UNITS,
-                                    num_layers=self.NUM_LAYERS,
-                                    batch_first=True,
-                                    dropout=self.dropout_prob, ),
-                    "GRU": nn.GRU(input_size=self.INPUT_SIZE,
-                                  hidden_size=self.HIDDEN_UNITS,
-                                  num_layers=self.NUM_LAYERS, batch_first=True,
-                                  dropout=self.dropout_prob, )
-                    }
+        rnn_dict = {
+            "RNN": nn.RNN(
+                input_size=self.INPUT_SIZE,
+                hidden_size=self.HIDDEN_UNITS,
+                num_layers=self.NUM_LAYERS,
+                batch_first=True,
+                dropout=self.dropout_prob,
+            ),
+            "LSTM": nn.LSTM(
+                input_size=self.INPUT_SIZE,
+                hidden_size=self.HIDDEN_UNITS,
+                num_layers=self.NUM_LAYERS,
+                batch_first=True,
+                dropout=self.dropout_prob,
+            ),
+            "GRU": nn.GRU(
+                input_size=self.INPUT_SIZE,
+                hidden_size=self.HIDDEN_UNITS,
+                num_layers=self.NUM_LAYERS,
+                batch_first=True,
+                dropout=self.dropout_prob,
+            ),
+        }
 
         self.rnn = rnn_dict[self.rnn_mode]
         self.out = nn.Linear(self.HIDDEN_UNITS, self.OUTPUT_SIZE)
@@ -72,35 +93,28 @@ class DPRNN(nn.Module):
 
     def fit(self, X, Y):
         X_padded, _ = padd_arrays(X, max_length=self.MAX_STEPS)
-        Y_padded, loss_masks = np.squeeze(
-            padd_arrays(Y, max_length=self.OUTPUT_SIZE)[0], axis=2), np.squeeze(
-            padd_arrays(Y, max_length=self.OUTPUT_SIZE)[1], axis=2)
+        Y_padded, loss_masks = (
+            np.squeeze(padd_arrays(Y, max_length=self.OUTPUT_SIZE)[0], axis=2),
+            np.squeeze(padd_arrays(Y, max_length=self.OUTPUT_SIZE)[1], axis=2),
+        )
 
-        X = Variable(torch.tensor(X_padded), volatile=True).type(
-            torch.FloatTensor)
-        Y = Variable(torch.tensor(Y_padded), volatile=True).type(
-            torch.FloatTensor)
-        loss_masks = Variable(torch.tensor(loss_masks), volatile=True).type(
-            torch.FloatTensor)
+        X = Variable(torch.tensor(X_padded), volatile=True).type(torch.FloatTensor)
+        Y = Variable(torch.tensor(Y_padded), volatile=True).type(torch.FloatTensor)
+        loss_masks = Variable(torch.tensor(loss_masks), volatile=True).type(torch.FloatTensor)
 
         self.X = X
         self.Y = Y
         self.masks = loss_masks
 
-        optimizer = torch.optim.Adam(self.parameters(),
-                                     lr=self.LR)  # optimize all rnn parameters
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.LR)  # optimize all rnn parameters
         self.loss_func = model_loss  # nn.MSELoss()
 
         # training and testing
         for epoch in range(self.EPOCH):
             for step in range(self.N_STEPS):
-                batch_indexes = np.random.choice(list(range(X.shape[0])),
-                                                 size=self.BATCH_SIZE,
-                                                 replace=True, p=None)
+                batch_indexes = np.random.choice(list(range(X.shape[0])), size=self.BATCH_SIZE, replace=True, p=None)
 
-                x = torch.tensor(X[batch_indexes, :, :]).reshape(-1,
-                                                                 self.MAX_STEPS,
-                                                                 self.INPUT_SIZE).detach()
+                x = torch.tensor(X[batch_indexes, :, :]).reshape(-1, self.MAX_STEPS, self.INPUT_SIZE).detach()
                 y = torch.tensor(Y[batch_indexes]).detach()
                 msk = torch.tensor(loss_masks[batch_indexes]).detach()
 
@@ -112,7 +126,7 @@ class DPRNN(nn.Module):
                 loss.backward()  # backpropagation, compute gradients
                 optimizer.step()  # apply gradients
 
-            print('Epoch: ', epoch, '| train loss: %.4f' % loss.data)
+            print("Epoch: ", epoch, "| train loss: %.4f" % loss.data)
 
     def predict(self, X, num_samples=100, alpha=0.05):
         z_critical = st.norm.ppf((1 - alpha) + (alpha) / 2)
@@ -123,18 +137,13 @@ class DPRNN(nn.Module):
             X_, masks = padd_arrays(X, max_length=self.MAX_STEPS)
 
         predictions = []
-        X_test = Variable(torch.tensor(X_), volatile=True).type(
-            torch.FloatTensor)
+        X_test = Variable(torch.tensor(X_), volatile=True).type(torch.FloatTensor)
 
         for idx in range(num_samples):
             predicts_ = self(X_test).view(-1, self.OUTPUT_SIZE)
-            predictions.append(
-                predicts_.detach().numpy().reshape((-1, 1, self.OUTPUT_SIZE)))
+            predictions.append(predicts_.detach().numpy().reshape((-1, 1, self.OUTPUT_SIZE)))
 
-        pred_mean = unpadd_arrays(
-            np.mean(np.concatenate(predictions, axis=1), axis=1), masks)
-        pred_std = unpadd_arrays(
-            z_critical * np.std(np.concatenate(predictions, axis=1), axis=1),
-            masks)
+        pred_mean = unpadd_arrays(np.mean(np.concatenate(predictions, axis=1), axis=1), masks)
+        pred_std = unpadd_arrays(z_critical * np.std(np.concatenate(predictions, axis=1), axis=1), masks)
 
         return pred_mean, pred_std
