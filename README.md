@@ -21,6 +21,8 @@ To replicate experiment results, run the notebooks:
 * [`synthetic.ipynb`](./synthetic.ipynb)
 * [`medical.ipynb`](./medical.ipynb)
 
+You can download the publicly available data for this work [here](https://drive.google.com/drive/folders/1fD66DKTMjQNxLrfVZo803ScXawkyth7P?usp=sharing). As the MIMIC-III dataset [requires PhysioNet credentialing](https://mimic.mit.edu/docs/gettingstarted/) to access, you must become a credentialed user on PhysioNet before accessing the data. To get access to the dataset as used in this work, please contact the authors and provide proof of your PhysioNet credentialing.
+
 
 
 ## Citing
