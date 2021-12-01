@@ -1,0 +1,21 @@
+; [MASTER]
+; init-hook='import sys; sys.path.extend(["./", "./clairvoyance"])'
+
+[MESSAGES CONTROL]
+disable=R,C,
+        raise-missing-from,
+        fixme,
+        attribute-defined-outside-init,
+        unused-variable,
+        unused-argument,
+        logging-format-interpolation,
+        pointless-string-statement,
+        redefined-outer-name
+
+[TYPECHECK]
+generated-members=tensorflow.*,
+                  torch.*
+ignored-modules=tensorflow.compat,
+                tensorflow.keras,
+                tensorflow.python.ops,
+                scipy.special
