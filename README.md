@@ -12,12 +12,14 @@ under the BSD 3-clause license.
 
 
 ## Installation
-`TODO`
+Python 3.6+ is recommended. Install the dependencies from [`requirements.txt`](./requirements.txt).
 
 
 
 ## Replicating Results
-`TODO`
+To replicate experiment results, run the notebooks:
+* [`synthetic.ipynb`](./synthetic.ipynb)
+* [`medical.ipynb`](./medical.ipynb)
 
 
 
