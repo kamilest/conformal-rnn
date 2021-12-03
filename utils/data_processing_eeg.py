@@ -50,8 +50,9 @@ def get_raw_eeg_data(split="train", include_alcoholic_class=False, cached=True):
     else:
         root = eeg_root_test
 
-    if cached:
-        with open("data/eeg_{}.pkl".format(split), "rb") as f:
+    filepath = "data/eeg_{}.pkl".format(split)
+    if cached and os.path.exists(filepath):
+        with open(filepath, "rb") as f:
             dataset = pickle.load(f)
     else:
         dataset = []
@@ -63,7 +64,7 @@ def get_raw_eeg_data(split="train", include_alcoholic_class=False, cached=True):
                     if ".gz" in pathlib.Path(f).suffixes:
                         chan_arrays = parse_eeg_file(f)
                         dataset.extend(chan_arrays)
-        with open("data/eeg_{}.pkl".format(split), "wb") as f:
+        with open(filepath, "wb") as f:
             pickle.dump(dataset, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     return dataset
