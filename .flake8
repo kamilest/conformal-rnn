@@ -1,0 +1,5 @@
+[flake8]
+# Some sane defaults for the code style checker flake8
+max_line_length = 120
+select = C,E,F,W,B,B950
+extend_ignore = E203, E501, W503, F841, E266, E231

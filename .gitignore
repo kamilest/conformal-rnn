@@ -284,5 +284,14 @@ Thumbs.db
 
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm,python,macos
-/data/
-/processed_data/
+
+data/**
+!data/.keep
+processed_data/**
+!processed_data/.keep
+saved_results/**
+!saved_results/.keep
+saved_models/**
+!saved_models/.keep
+
+*.png

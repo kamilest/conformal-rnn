@@ -1,10 +1,9 @@
 # Copyright (c) 2020, Ahmed M. Alaa
 # Licensed under the BSD 3-clause license
 
-from __future__ import absolute_import, division, print_function
+import sys
 
 import numpy as np
-import sys
 
 if not sys.warnoptions:
     import warnings
@@ -16,7 +15,7 @@ import pickle
 
 
 def save_model(model, filename):
-    with open(filename, 'wb') as saved_model_file:
+    with open(filename, "wb") as saved_model_file:
         pickle.dump(model, saved_model_file)
 
 
@@ -34,13 +33,17 @@ def padd_arrays(X, max_length=None):
     if max_length is None:
         max_length = np.max(np.array([len(X[k]) for k in range(len(X))]))
 
-    X_output = [np.expand_dims(np.vstack(
-        (X[k], np.zeros((max_length - X[k].shape[0], X[0].shape[1])))), axis=0)
-        for k in range(len(X))]
-    _mask = [np.expand_dims(np.vstack((np.ones((X[k].shape[0], X[k].shape[1])),
-                                       np.zeros((max_length - X[k].shape[0],
-                                                 X[0].shape[1])))), axis=0) for
-             k in range(len(X))]
+    X_output = [
+        np.expand_dims(np.vstack((X[k], np.zeros((max_length - X[k].shape[0], X[0].shape[1])))), axis=0)
+        for k in range(len(X))
+    ]
+    _mask = [
+        np.expand_dims(
+            np.vstack((np.ones((X[k].shape[0], X[k].shape[1])), np.zeros((max_length - X[k].shape[0], X[0].shape[1])))),
+            axis=0,
+        )
+        for k in range(len(X))
+    ]
 
     return np.concatenate(X_output, axis=0), np.concatenate(_mask, axis=0)
 
@@ -52,9 +55,9 @@ def unpadd_arrays(X, masks):
     for k in range(X.shape[0]):
 
         if len(X.shape) > 2:
-            out_.append(X[k, :int(masks_lengths[k]), :])
+            out_.append(X[k, : int(masks_lengths[k]), :])
         else:
-            out_.append(X[k, :int(masks_lengths[k])])
+            out_.append(X[k, : int(masks_lengths[k])])
 
     return out_
 

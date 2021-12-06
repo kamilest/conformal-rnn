@@ -11,9 +11,20 @@ from utils.data_padding import padd_arrays, unpadd_arrays
 
 
 class RNN(torch.nn.Module):
-    def __init__(self, rnn_mode="RNN", epochs=5, batch_size=150, max_steps=50,
-                 input_size=30, lr=0.01, output_size=1, embedding_size=20,
-                 n_layers=1, n_steps=50, **kwargs):
+    def __init__(
+        self,
+        rnn_mode="RNN",
+        epochs=5,
+        batch_size=150,
+        max_steps=50,
+        input_size=30,
+        lr=0.01,
+        output_size=1,
+        embedding_size=20,
+        n_layers=1,
+        n_steps=50,
+        **kwargs
+    ):
 
         super(RNN, self).__init__()
 
@@ -27,19 +38,17 @@ class RNN(torch.nn.Module):
         self.NUM_LAYERS = n_layers
         self.N_STEPS = n_steps
 
-        rnn_dict = {"RNN": torch.nn.RNN(input_size=self.INPUT_SIZE,
-                                        hidden_size=self.HIDDEN_UNITS,
-                                        num_layers=self.NUM_LAYERS,
-                                        batch_first=True, ),
-                    "LSTM": torch.nn.LSTM(input_size=self.INPUT_SIZE,
-                                          hidden_size=self.HIDDEN_UNITS,
-                                          num_layers=self.NUM_LAYERS,
-                                          batch_first=True, ),
-                    "GRU": torch.nn.GRU(input_size=self.INPUT_SIZE,
-                                        hidden_size=self.HIDDEN_UNITS,
-                                        num_layers=self.NUM_LAYERS,
-                                        batch_first=True, )
-                    }
+        rnn_dict = {
+            "RNN": torch.nn.RNN(
+                input_size=self.INPUT_SIZE, hidden_size=self.HIDDEN_UNITS, num_layers=self.NUM_LAYERS, batch_first=True,
+            ),
+            "LSTM": torch.nn.LSTM(
+                input_size=self.INPUT_SIZE, hidden_size=self.HIDDEN_UNITS, num_layers=self.NUM_LAYERS, batch_first=True,
+            ),
+            "GRU": torch.nn.GRU(
+                input_size=self.INPUT_SIZE, hidden_size=self.HIDDEN_UNITS, num_layers=self.NUM_LAYERS, batch_first=True,
+            ),
+        }
 
         self.rnn_mode = rnn_mode
         self.rnn = rnn_dict[self.rnn_mode]
@@ -71,9 +80,10 @@ class RNN(torch.nn.Module):
 
     def fit(self, X, Y):
         X_padded, _ = padd_arrays(X, max_length=self.MAX_STEPS)
-        Y_padded, loss_masks = np.squeeze(
-            padd_arrays(Y, max_length=self.OUTPUT_SIZE)[0], axis=2), np.squeeze(
-            padd_arrays(Y, max_length=self.OUTPUT_SIZE)[1], axis=2)
+        Y_padded, loss_masks = (
+            np.squeeze(padd_arrays(Y, max_length=self.OUTPUT_SIZE)[0], axis=2),
+            np.squeeze(padd_arrays(Y, max_length=self.OUTPUT_SIZE)[1], axis=2),
+        )
 
         X = torch.FloatTensor(X_padded)
         Y = torch.FloatTensor(Y_padded)
@@ -83,21 +93,16 @@ class RNN(torch.nn.Module):
         self.y = Y
         self.masks = loss_masks
 
-        optimizer = torch.optim.Adam(self.parameters(),
-                                     lr=self.LR)  # optimize all rnn parameters
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.LR)  # optimize all rnn parameters
         self.loss_fn = model_loss  # nn.MSELoss()
 
         # training and testing
         for epoch in range(self.EPOCH):
             for step in range(self.N_STEPS):
-                batch_indexes = np.random.choice(list(range(X.shape[0])),
-                                                 size=self.BATCH_SIZE,
-                                                 replace=True, p=None)
+                batch_indexes = np.random.choice(list(range(X.shape[0])), size=self.BATCH_SIZE, replace=True, p=None)
 
                 # reshape x to (batch, time_step, input_size)
-                x = torch.tensor(X[batch_indexes, :, :]).reshape(-1,
-                                                                 self.MAX_STEPS,
-                                                                 self.INPUT_SIZE).detach()
+                x = torch.tensor(X[batch_indexes, :, :]).reshape(-1, self.MAX_STEPS, self.INPUT_SIZE).detach()
                 y = torch.tensor(Y[batch_indexes]).detach()
                 msk = torch.tensor(loss_masks[batch_indexes]).detach()
 
@@ -106,12 +111,11 @@ class RNN(torch.nn.Module):
                 self.loss = self.loss_fn(output, y, msk)  # MSE loss
 
                 optimizer.zero_grad()  # clear gradients for this training step
-                self.loss.backward(
-                    retain_graph=True)  # backpropagation, compute gradients
+                self.loss.backward(retain_graph=True)  # backpropagation, compute gradients
                 optimizer.step()  # apply gradients
 
             if epoch % 50 == 0:
-                print('Epoch: ', epoch, '| train loss: %.4f' % self.loss.data)
+                print("Epoch: ", epoch, "| train loss: %.4f" % self.loss.data)
 
     def predict(self, X, padd=False):
         if type(X) is list:
@@ -119,8 +123,7 @@ class RNN(torch.nn.Module):
         else:
             X_, masks = padd_arrays([X], max_length=self.MAX_STEPS)
 
-        X_test = Variable(torch.tensor(X_), volatile=True).type(
-            torch.FloatTensor)
+        X_test = Variable(torch.tensor(X_), volatile=True).type(torch.FloatTensor)
         predicts_ = self(X_test).view(-1, self.OUTPUT_SIZE)
 
         if padd:
