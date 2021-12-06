@@ -19,6 +19,7 @@ Python 3.6+ is recommended. Install the dependencies from [`requirements.txt`](.
 ## Replicating Results
 To replicate experiment results, run the notebooks:
 * [`synthetic.ipynb`](./synthetic.ipynb)
+* [`synthetic_bjrnn.ipynb`](./synthetic.ipynb) (**Note:** this notebook should be executed with requirements as per [`requirements_bjrnn.txt`](./requirements_bjrnn.txt).)
 * [`medical.ipynb`](./medical.ipynb)
 
 You can download the publicly available data for this work [here](https://drive.google.com/drive/folders/1fD66DKTMjQNxLrfVZo803ScXawkyth7P?usp=sharing). As the MIMIC-III dataset [requires PhysioNet credentialing](https://mimic.mit.edu/docs/gettingstarted/) to access, you must become a credentialed user on PhysioNet before accessing the data. To get access to the dataset as used in this work, please contact the authors and provide proof of your PhysioNet credentialing.

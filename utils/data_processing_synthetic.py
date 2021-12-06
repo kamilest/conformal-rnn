@@ -3,7 +3,11 @@
 # Licensed under the BSD 3-clause license
 
 import os.path
-import pickle
+import sys
+if sys.version_info < (3, 8, 3):
+    import pickle5 as pickle
+else:
+    import pickle
 
 import numpy as np
 import torch

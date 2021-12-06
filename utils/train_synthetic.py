@@ -185,9 +185,10 @@ def run_synthetic_experiments(
                 params["max_steps"] = get_max_steps(train_dataset, test_dataset)
 
             if baseline == "BJRNN":
+                params["epochs"] = 1000
                 RNN_model = RNN(**params)
                 RNN_model.fit(train_dataset[0], train_dataset[1])
-                model = RNN_uncertainty_wrapper(RNN_model)
+                model = RNN_uncertainty_wrapper(RNN_model, rnn_mode="RNN")
             else:
                 model = BASELINES[baseline](**params)
                 model.fit(train_dataset[0], train_dataset[1])

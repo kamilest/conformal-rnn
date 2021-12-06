@@ -10,9 +10,10 @@ from influence.influence_utils import perturb_model_
 
 
 class RNN_uncertainty_wrapper:
-    def __init__(self, model, mode="exact", damp=1e-4):
+    def __init__(self, model, mode="exact", damp=1e-4, rnn_mode=None):
 
         self.model = model
+        self.rnn_mode = rnn_mode
         self.IF = influence_function(model, train_index=list(range(model.X.shape[0])), mode=mode, damp=damp)
 
         X_ = [model.X[k][: int(torch.sum(model.masks[k, :]).detach().numpy())] for k in range(model.X.shape[0])]
@@ -33,7 +34,7 @@ class RNN_uncertainty_wrapper:
     def predict(self, X_test, coverage=0.95):
 
         variable_preds = []
-        num_sequences = np.array(X_test).shape[0]
+        num_sequences = np.array([t.numpy() if isinstance(t, torch.Tensor) else t for t in X_test]).shape[0]
 
         for k in range(len(self.IF)):
             perturbed_models = perturb_model_(self.model, self.IF[k])
