@@ -1,4 +1,4 @@
-jupyterlab~=3.2.1
+jupyterlab>=3.6.7
 matplotlib~=3.3.4
 numpy>=1.22
 pandas~=1.2.1
