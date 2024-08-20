@@ -6,4 +6,4 @@ pickle5>=0.0.12; python_version < '3.8.3'
 scikit-learn
 scipy
 seaborn
-torch==1.4.0  # Requires old version of PyTorch.
+torch==2.2.0  # Requires old version of PyTorch.
